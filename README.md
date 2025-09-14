@@ -16,7 +16,49 @@ A TypeScript library that generates validation schemas from Mikro-ORM entities. 
 npm install --save-dev mikro-typebox
 ```
 
-## API Reference
+## CLI Usage
+
+The package includes a command-line interface for easy usage:
+
+### Basic Commands
+
+```bash
+# Generate typebox schema from `./src/entities` to `./src/entity-validators.ts`
+npx mikro-typebox generate
+
+# Generate for Zod
+npx mikro-typebox generate --target zod
+
+# Specify entities directory and output file
+npx mikro-typebox generate --target zod --entities ./src/models --output ./src/entity-validators.ts
+```
+
+### CLI Options
+
+#### `generate` command
+
+- `-e, --entities <path>`: Directory containing entity files (default: `./src/entities`)
+- `-o, --output <file>`: Output file path (default: `./src/entity-validators.ts`)
+- `--no-write`: Print the code to the console instead of writing to a file (default: writes to a file)
+- `-t, --target <library>`: Target validation library (default: `typebox`)
+
+### Supported Validation Libraries
+
+- `typebox` - TypeBox (default)
+- `zod` - Zod
+- `valibot` - Valibot
+- `arktype` - ArkType
+- `effect` - Effect
+- `io-ts` - io-ts
+- `yup` - Yup
+- `json-schema` - JSON Schema
+- `javascript` - JavaScript
+- `typescript` - TypeScript
+- `value` - Value
+
+## Programmatic Usage
+
+You can also use the API to generate validation schemas programmatically.
 
 ### `generateEntityValidator(options)`
 
@@ -25,22 +67,10 @@ Generates validation schemas from Mikro-ORM entities.
 #### Parameters
 
 - `options.entitiesDir` (optional): Directory containing the entity files (default: `"./src/entities"`)
-- `options.outputFile` (optional): File path to write the generated code
+- `options.outputFile` (optional): File path to write the generated code (default: `"./src/entity-validators.ts"`)
+- `options.write` (optional): Whether to write the code to a file (default: `true`)
 - `options.targetValidationLibrary` (optional): Target validation library (default: `"typebox"`)
 
-#### Supported Validation Libraries
-
-- `"typebox"` - TypeBox (default)
-- `"zod"` - Zod
-- `"valibot"` - Valibot
-- `"arktype"` - ArkType
-- `"effect"` - Effect
-- `"io-ts"` - io-ts
-- `"yup"` - Yup
-- `"json-schema"` - JSON Schema
-- `"javascript"` - JavaScript
-- `"typescript"` - TypeScript
-- `"value"` - Value
 
 ### `generateEntityTypes(code, entityIdTypes)`
 
@@ -66,13 +96,20 @@ Processes multiple entity files and generates types with proper entity ID replac
 ```typescript
 import { generateEntityValidator } from 'mikro-typebox';
 
-// Generate TypeBox schemas from entities
+// Generate TypeBox schemas from entities (prints to console)
 const validatorCode = await generateEntityValidator({
   entitiesDir: './src/entities',
-  outputFile: './src/validators.ts'
+  write: false
 });
 
 console.log(validatorCode);
+
+// Generate and save to file
+await generateEntityValidator({
+  entitiesDir: './src/entities',
+  outputFile: './src/validators.ts',
+  write: true
+});
 ```
 
 ### Using Different Validation Libraries
@@ -84,14 +121,16 @@ import { generateEntityValidator } from 'mikro-typebox';
 const zodCode = await generateEntityValidator({
   entitiesDir: './src/entities',
   targetValidationLibrary: 'zod',
-  outputFile: './src/zod-validators.ts'
+  outputFile: './src/zod-validators.ts',
+  write: true
 });
 
 // Generate Valibot schemas
 const valibotCode = await generateEntityValidator({
   entitiesDir: './src/entities',
   targetValidationLibrary: 'valibot',
-  outputFile: './src/valibot-validators.ts'
+  outputFile: './src/valibot-validators.ts',
+  write: true
 });
 ```
 
@@ -208,12 +247,6 @@ const allTypes = generateEntityFileTypes(fileContents);
 4. **Collection Conversion**: Converts `Collection<T>` to `Array<T>` with proper type mapping
 5. **Code Cleanup**: Removes Mikro-ORM specific imports, decorators, and method calls
 6. **Schema Generation**: Converts TypeScript types to validation schemas using the target library
-
-## Requirements
-
-- Node.js 16+
-- TypeScript 4.5+
-- Mikro-ORM entities with proper decorators
 
 ## License
 

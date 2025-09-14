@@ -3,7 +3,7 @@ import { existsSync } from "fs";
 import { readdir, readFile, writeFile } from "fs/promises";
 import { generateEntityFileTypes } from "./entity-parse.js";
 
-const modelNames = {
+export const modelsToFunction = {
 	arktype: "ArkType",
 	effect: "Effect",
 	"io-ts": "IoTs",
@@ -22,17 +22,23 @@ export type GenerateEntityValidatorOptions = {
 	 * Directory containing the entities
 	 * @default "./src/entities"
 	 */
-	entitiesDir?: string;
+	entitiesDir?: string | undefined;
 	/**
-	 * The file to write the code to.
-	 * The code is returned from the function regardless of this option.
+	 * The file to write the code to if `write` is true.
+	 * @default "./src/entity-validators.ts"
 	 */
-	outputFile?: string;
+	outputFile?: string | undefined;
+	/**
+	 * Whether to write the code to a file.
+	 * The code is returned from the function regardless of this option.
+	 * @default true
+	 */
+	write?: boolean | undefined;
 	/**
 	 * Target validation library (Zod, TypeBox, Valibot, etc.)
 	 * @default "typebox"
 	 */
-	targetValidationLibrary?: keyof typeof modelNames;
+	targetValidationLibrary?: keyof typeof modelsToFunction | undefined;
 };
 
 /**
@@ -62,22 +68,22 @@ export async function generateEntityValidator(opts: GenerateEntityValidatorOptio
 			useTypeBoxImport: true,
 			useIdentifiers: true
 		});
-	} else if (opts.targetValidationLibrary in modelNames) {
+	} else if (opts.targetValidationLibrary in modelsToFunction) {
 		// generate the model
 		const model = Codegen.TypeScriptToModel.Generate(typesCode);
 
 		// get the model name
-		const modelName = modelNames[opts.targetValidationLibrary];
+		const modelName = modelsToFunction[opts.targetValidationLibrary];
 		
 		// generate the code
 		output = Codegen[`ModelTo${modelName}`].Generate(model);
 	} else {
-		throw new Error(`Invalid target validation library: ${opts.targetValidationLibrary}.\nValid options are: ${Object.keys(modelNames).join(", ")}.`);
+		throw new Error(`Invalid target validation library: ${opts.targetValidationLibrary}.\nValid options are: ${Object.keys(modelsToFunction).join(", ")}.`);
 	}
 
 	// write the code to a file
-	if (opts.outputFile) {
-		await writeFile(opts.outputFile, output);
+	if (opts.write) {
+		await writeFile(opts.outputFile ?? "./src/entity-validators.ts", output);
 	}
 
 	return output;

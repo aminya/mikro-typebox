@@ -11,15 +11,21 @@
   "main": "dist/index.js",
   "module": "src/index.ts",
   "type": "module",
+  "bin": {
+    "mikro-typebox": "./dist/cli.js"
+  },
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
   },
   "devDependencies": {
     "@tsconfig/strictest": "^2.0.5",
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/node": "^20.0.0"
   },
   "dependencies": {
     "@sinclair/typebox-codegen": "^0.11.1",
+    "commander": "^12.0.0",
     "typescript": "^5.9.2"
   }
 }
