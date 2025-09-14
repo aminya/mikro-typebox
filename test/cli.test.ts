@@ -232,6 +232,9 @@ describe("CLI", () => {
 
       // The command should fail with exit code 1
       // Note: stderr capture is not reliable with bun spawn
+
+      // remove src/entity-validators.ts
+      await rm("./src/entity-validators.ts", { force: true });
     });
   });
 });
