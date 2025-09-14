@@ -1,5 +1,6 @@
 {
   "name": "mikro-typebox",
+  "description": "A TypeScript library that generates validation schemas from Mikro-ORM entities.",
   "version": "1.0.0",
   "author": {
     "name": "Amin Ya",
