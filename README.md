@@ -1,6 +1,6 @@
 # mikro-typebox
 
-A TypeScript library that generates validation schemas from Mikro-ORM entities. It converts Mikro-ORM entity classes into TypeScript types and then generates validation schemas using various validation libraries like TypeBox, Zod, Valibot, and more.
+Generate validation schemas from Mikro-ORM entities. Supports TypeBox, Zod, Valibot, ArkType, Effect, io-ts, Yup, and more.
 
 ## Features
 

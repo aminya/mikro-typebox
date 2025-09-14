@@ -1,6 +1,6 @@
 {
   "name": "mikro-typebox",
-  "description": "A TypeScript library that generates validation schemas from Mikro-ORM entities.",
+  "description": "Generate validation schemas from Mikro-ORM entities. Supports TypeBox, Zod, Valibot, ArkType, Effect, io-ts, Yup, and more.",
   "version": "1.0.0",
   "author": {
     "name": "Amin Ya",
