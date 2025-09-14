@@ -14,6 +14,7 @@
   "bin": {
     "mikro-typebox": "./dist/cli.js"
   },
+  "packageManager": "bun@1.2.21",
   "scripts": {
     "build": "tsc",
     "test": "bun test",
@@ -23,12 +24,11 @@
   "devDependencies": {
     "@mikro-orm/core": "^6.5.3",
     "@tsconfig/strictest": "^2.0.5",
-    "@types/bun": "latest",
-    "@types/node": "^20.0.0"
+    "@types/bun": "^1.2.22"
   },
   "dependencies": {
     "@sinclair/typebox-codegen": "^0.11.1",
-    "commander": "^12.0.0",
+    "commander": "^14.0.1",
     "typescript": "^5.9.2"
   },
   "tags": [
