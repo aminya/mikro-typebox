@@ -1,11 +1,24 @@
 {
   "name": "mikro-typebox",
+  "version": "1.0.0",
+  "author": {
+    "name": "Amin Ya",
+    "url": "https://github.com/aminya",
+    "email": "aminyahyaabadi74@gmail.com"
+  },
+  "license": "Apache-2.0",
+  "main": "dist/index.js",
   "module": "src/index.ts",
   "type": "module",
+  "scripts": {
+    "build": "tsc"
+  },
   "devDependencies": {
+    "@tsconfig/strictest": "^2.0.5",
     "@types/bun": "latest"
   },
-  "peerDependencies": {
-    "typescript": "^5"
+  "dependencies": {
+    "@sinclair/typebox-codegen": "^0.11.1",
+    "typescript": "^5.9.2"
   }
 }
