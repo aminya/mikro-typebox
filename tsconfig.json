@@ -4,8 +4,11 @@
     "lib": ["ESNext"],
     "target": "ESNext",
     "module": "NodeNext",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
     "moduleResolution": "nodenext",
     "outDir": "dist",
+    "rootDir": "src",
     "sourceMap": true
   },
   "include": ["src/**/*"]

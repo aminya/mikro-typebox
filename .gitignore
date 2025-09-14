@@ -1,5 +1,7 @@
 # dependencies (bun install)
 node_modules
+*.js
+*.js.map
 
 # output
 out

@@ -156,6 +156,11 @@ export class User {
 
   @OneToMany(() => Book, book => book.author)
   books = new Collection<Book>(this);
+
+  constructor({ name, email }: User) {
+    this.name = name;
+    this.email = email;
+  }
 }
 
 // src/entities/Book.ts
@@ -172,6 +177,11 @@ export class Book {
 
   @ManyToOne(() => User)
   author!: User;
+
+  constructor({ title, author }: Book) {
+    this.title = title;
+    this.author = author;
+  }
 }
 ```
 
