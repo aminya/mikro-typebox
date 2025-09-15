@@ -188,10 +188,8 @@ describe("entity-validator", () => {
       });
 
       expect(result).toContain("export const Comment = Type.Object({");
-      expect(result).toContain("post: Type.Object({"); // Post entity with inline object type
-      expect(result).toContain("id: Type.String()"); // Post ID field
-      expect(result).toContain("author: Type.Object({"); // User entity with inline object type
-      expect(result).toContain("id: Type.Number()"); // User ID field
+      expect(result).toContain("post: schema.PartialPost"); // Post entity 
+      expect(result).toContain("author: schema.PartialUser"); // User entity 
     });
 
     it("should handle empty entities directory", async () => {

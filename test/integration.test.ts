@@ -123,18 +123,20 @@ describe("Integration Tests", () => {
       expect(result).toContain("title: Type.String()");
       expect(result).toContain("content: Type.String()");
       expect(result).toContain("publishedAt: Type.Date()");
-      expect(result).toContain("author: Type.Object({"); // User entity with inline object type
-      expect(result).toContain("id: Type.Number()"); // User ID field
+      expect(result).toContain("author: schema.PartialUser"); // User entity with partial type
       expect(result).toContain("comments: Type.Any()"); // Collection becomes any when entity ID types are not available
 
       // Check Comment entity
       expect(result).toContain("export const Comment = Type.Object({");
       expect(result).toContain("content: Type.String()");
       expect(result).toContain("createdAt: Type.Date()");
-      expect(result).toContain("post: Type.Object({"); // Post entity with inline object type
-      expect(result).toContain("id: Type.String()"); // Post ID field
-      expect(result).toContain("author: Type.Object({"); // User entity with inline object type
-      expect(result).toContain("id: Type.Number()"); // User ID field
+      expect(result).toContain("post: schema.PartialPost"); // Post entity with partial type
+      expect(result).toContain("author: schema.PartialUser"); // User entity with partial type
+      
+      // Check that partial types are generated
+      expect(result).toContain("export const PartialUser = Type.Object({");
+      expect(result).toContain("export const PartialPost = Type.Object({");
+      expect(result).toContain("export const PartialComment = Type.Object({");
     });
 
     it("should write validators to file", async () => {
@@ -179,7 +181,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("title: z.string()");
       expect(result).toContain("content: z.string()");
       expect(result).toContain("publishedAt: z.date()");
-      expect(result).toContain("author: z.object({"); // User entity with object type
+      expect(result).toContain("author: z.object({"); // User entity with inline object type
       expect(result).toContain("id: z.number()"); // User ID within object
       expect(result).toContain("comments: z.any()"); // Collection becomes any when entity ID types are not available
 
@@ -187,8 +189,8 @@ describe("Integration Tests", () => {
       expect(result).toContain("export const schema_Comment = z.object({");
       expect(result).toContain("content: z.string()");
       expect(result).toContain("createdAt: z.date()");
-      expect(result).toContain("post: z.object({"); // Post entity with object type
-      expect(result).toContain("author: z.object({"); // User entity with object type
+      expect(result).toContain("post: z.object({"); // Post entity with inline object type
+      expect(result).toContain("author: z.object({"); // User entity with inline object type
     });
   });
 
@@ -216,7 +218,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("title: v.string()");
       expect(result).toContain("content: v.string()");
       expect(result).toContain("publishedAt: v.date()");
-      expect(result).toContain("author: v.object({"); // User entity with object type
+      expect(result).toContain("author: v.object({"); // User entity with inline object type
       expect(result).toContain("id: v.number()"); // User ID within object
       expect(result).toContain("comments: v.any()"); // Collection becomes any when entity ID types are not available
 
@@ -224,8 +226,8 @@ describe("Integration Tests", () => {
       expect(result).toContain("export const schema_Comment = v.object({");
       expect(result).toContain("content: v.string()");
       expect(result).toContain("createdAt: v.date()");
-      expect(result).toContain("post: v.object({"); // Post entity with object type
-      expect(result).toContain("author: v.object({"); // User entity with object type
+      expect(result).toContain("post: v.object({"); // Post entity with inline object type
+      expect(result).toContain("author: v.object({"); // User entity with inline object type
     });
   });
 
@@ -248,15 +250,17 @@ describe("Integration Tests", () => {
       expect(result).toContain("posts: any"); // Collection becomes any when entity ID types are not available
 
       expect(result).toContain("export type Post = {");
-      expect(result).toContain("author: {"); // User entity with inline object type
-      expect(result).toContain("id: number;"); // User ID field
+      expect(result).toContain("author: schema.PartialUser"); // User entity with partial type
       expect(result).toContain("comments: any"); // Collection becomes any when entity ID types are not available
 
       expect(result).toContain("export type Comment = {");
-      expect(result).toContain("post: {"); // Post entity with inline object type
-      expect(result).toContain("id: string;"); // Post ID field
-      expect(result).toContain("author: {"); // User entity with inline object type
-      expect(result).toContain("id: number;"); // User ID field
+      expect(result).toContain("post: schema.PartialPost"); // Post entity with partial type
+      expect(result).toContain("author: schema.PartialUser"); // User entity with partial type
+      
+      // Check that partial types are generated
+      expect(result).toContain("export type PartialUser = {");
+      expect(result).toContain("export type PartialPost = {");
+      expect(result).toContain("export type PartialComment = {");
 
       // Check that imports and decorators are removed
       expect(result).not.toContain("import {");

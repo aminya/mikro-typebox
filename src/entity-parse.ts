@@ -107,7 +107,39 @@ function visitCalls(
 }
 
 /**
- * Create an inline object type with just the primary key field to avoid circular references
+ * Create a named partial type (Partial<Entity>) with required ID and optional other properties
+ */
+function createPartialEntityType(
+	entityName: string, 
+	primaryKeyInfo: { fieldName: string; fieldType: ts.TypeNode },
+	allProperties: ts.PropertySignature[]
+): ts.TypeAliasDeclaration {
+	// Create the partial type with required ID and optional other properties
+	const partialProperties = allProperties.map(prop => {
+		if (ts.isPropertySignature(prop) && ts.isIdentifier(prop.name) && prop.name.text === primaryKeyInfo.fieldName) {
+			// Keep the primary key as required
+			return prop;
+		} else {
+			// Make all other properties optional
+			return ts.factory.createPropertySignature(
+				prop.modifiers,
+				prop.name,
+				ts.factory.createToken(ts.SyntaxKind.QuestionToken), // Add ? to make optional
+				prop.type
+			);
+		}
+	});
+
+	return ts.factory.createTypeAliasDeclaration(
+		[ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
+		`Partial${entityName}`,
+		undefined,
+		ts.factory.createTypeLiteralNode(partialProperties)
+	);
+}
+
+/**
+ * Create an inline object type with just the primary key field for deep references
  */
 function createPrimaryKeyObjectType(primaryKeyInfo: { fieldName: string; fieldType: ts.TypeNode }): ts.TypeLiteralNode {
 	return ts.factory.createTypeLiteralNode([
@@ -121,9 +153,26 @@ function createPrimaryKeyObjectType(primaryKeyInfo: { fieldName: string; fieldTy
 }
 
 /**
- * Replace entity type references with object types containing primary key
+ * Replace entity type references with partial entity types
  */
 function replaceEntityTypeWithPrimaryKey(
+	type: ts.TypeNode,
+	entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>
+): ts.TypeNode {
+	if (ts.isTypeReferenceNode(type) && ts.isIdentifier(type.typeName)) {
+		const entityName = type.typeName.text;
+		const primaryKeyInfo = entityPrimaryKeys.get(entityName);
+		if (primaryKeyInfo) {
+			return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(`schema.Partial${entityName}`), undefined);
+		}
+	}
+	return type;
+}
+
+/**
+ * Replace entity type references with inline primary key objects for deep references
+ */
+function replaceEntityTypeWithInlinePrimaryKey(
 	type: ts.TypeNode,
 	entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>
 ): ts.TypeNode {
@@ -138,7 +187,7 @@ function replaceEntityTypeWithPrimaryKey(
 }
 
 /**
- * Transform Collection<T> to Array<T> and replace entity types in generic arguments
+ * Transform Collection<T> to Array<T> and replace entity types in generic arguments with inline primary key objects
  */
 function transformCollectionType(
 	type: ts.TypeNode,
@@ -150,9 +199,9 @@ function transformCollectionType(
 		type.typeName.text === "Collection"
 	) {
 		if (type.typeArguments && type.typeArguments.length > 0) {
-			// Replace entity types in the generic arguments
+			// Replace entity types in the generic arguments with inline primary key objects for deep references
 			const transformedTypeArgs = type.typeArguments.map((typeArg) => 
-				replaceEntityTypeWithPrimaryKey(typeArg, entityPrimaryKeys)
+				replaceEntityTypeWithInlinePrimaryKey(typeArg, entityPrimaryKeys)
 			);
 			return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Array"), transformedTypeArgs);
 		} else {
@@ -269,12 +318,22 @@ const transformer = (
 					})
 					.filter((item): item is ts.PropertySignature => item !== null);
 
-				return ts.factory.createTypeAliasDeclaration(
+				// Create the main entity type
+				const mainType = ts.factory.createTypeAliasDeclaration(
 					[ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
 					className,
 					undefined,
 					ts.factory.createTypeLiteralNode(propertySignatures)
 				);
+
+				// Create the partial type if this is an entity with a primary key
+				const primaryKeyInfo = entityPrimaryKeys.get(className);
+				if (primaryKeyInfo) {
+					const partialType = createPartialEntityType(className, primaryKeyInfo, propertySignatures);
+					return [mainType, partialType];
+				}
+
+				return mainType;
 			}
 
 			// Remove variable declarations with initializers

@@ -225,13 +225,16 @@ describe("entity-parse", () => {
       expect(result).toContain("namespace schema {");
       expect(result).toContain("}");
       
-      // Check that entity references are replaced with inline object types containing primary key
-      expect(result).toContain("author: {"); // User entity with inline object type
-      expect(result).toContain("id: number;"); // User ID field
-      expect(result).toContain("post: {"); // Post entity with inline object type
-      expect(result).toContain("id: string;"); // Post ID field
+      // Check that entity references are replaced with partial types
+      expect(result).toContain("author: schema.PartialUser"); // User entity with partial type
+      expect(result).toContain("post: schema.PartialPost"); // Post entity with partial type
       expect(result).toContain("posts: any"); // Collection becomes any when entity ID types are not available
       expect(result).toContain("comments: any"); // Collection becomes any when entity ID types are not available
+      
+      // Check that partial types are generated
+      expect(result).toContain("export type PartialUser = {");
+      expect(result).toContain("export type PartialPost = {");
+      expect(result).toContain("export type PartialComment = {");
     });
 
     it("should handle single entity file", () => {
