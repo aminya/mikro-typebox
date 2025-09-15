@@ -59,8 +59,12 @@ export async function generateEntityValidator(opts: GenerateEntityValidatorOptio
 
 	const entities = await readdir(entitiesDir);
 
+	// filter to only include TypeScript files
+	const extensions = new Set([".ts", ".mts", ".cts", ".js", ".mjs", ".cjs", ".jsx", ".tsx"]);
+	const entityFiles = entities.filter((entity) => extensions.has(path.extname(entity)));
+
 	// read the entity files
-	const entityContents = await Promise.all(entities.map((entity) => readFile(`${entitiesDir}/${entity}`, "utf-8")));
+	const entityContents = await Promise.all(entityFiles.map((entity) => readFile(`${entitiesDir}/${entity}`, "utf-8")));
 
 	const isTypeBox = opts.targetValidationLibrary === undefined || opts.targetValidationLibrary === "typebox";
 
