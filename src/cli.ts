@@ -18,13 +18,16 @@ async function main() {
     .option('-o, --output <file>', 'Output file path', './src/entity-validators.ts')
     .option('--no-write', 'Print the code to the console instead of writing to a file', false)
     .option('-t, --target <library>', `Target validation library (${modelNames.join(', ')})`, 'typebox')
+    .option('--partials', 'Generate partial types instead of inline primary key references (default: true for typebox)')
+    .option('--no-partials')
     .action(async (options) => {
       try {
         const result = await generateEntityValidator({
           entitiesDir: options.entities,
           outputFile: options.output,
           targetValidationLibrary: options.target,
-          write: !options.noWrite
+          write: !options.noWrite,
+          partials: options.partials ?? (options.noPartials ? false : undefined)
         });
 
         if (options.noWrite) {

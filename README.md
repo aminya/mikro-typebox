@@ -96,7 +96,8 @@ import { generateEntityValidator } from 'mikro-typebox';
 await generateEntityValidator({
   entitiesDir: './src/entities',
   outputFile: './src/validators.ts',
-  write: true
+  write: true,
+  partials: true
 });
 
 // Generate for Zod
@@ -104,7 +105,7 @@ const zodCode = await generateEntityValidator({
   entitiesDir: './src/entities',
   targetValidationLibrary: 'zod',
   outputFile: './src/zod-validators.ts',
-  write: true
+  write: true,
 });
 
 
@@ -178,8 +179,15 @@ export namespace schema {
     export const Book = Type.Object({
         id: Type.Number(),
         title: Type.String(),
-        author: Type.Pick(schema.User, Type.Literal("id"))
+        author: schema.PartialUser
     }, { "$id": "schema.Book" })
+
+    export type PartialBook = Static<typeof PartialBook>
+    export const PartialBook = Type.Object({
+        id: Type.Number(),
+        title: Type.Optional(Type.String()),
+        author: Type.Optional(schema.PartialUser)
+    }, { "$id": "schema.PartialBook" })
 
     export type User = Static<typeof User>
     export const User = Type.Object({
@@ -188,6 +196,14 @@ export namespace schema {
         email: Type.String(),
         books: Type.Any()
     }, { "$id": "schema.User" })
+
+    export type PartialUser = Static<typeof PartialUser>
+    export const PartialUser = Type.Object({
+        id: Type.Number(),
+        name: Type.Optional(Type.String()),
+        email: Type.Optional(Type.String()),
+        books: Type.Optional(Type.Any())
+    }, { "$id": "schema.PartialUser" })
 
 }
 ```

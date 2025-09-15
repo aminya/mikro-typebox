@@ -2,6 +2,7 @@ import * as Codegen from "@sinclair/typebox-codegen";
 import { existsSync } from "fs";
 import { readdir, readFile, writeFile } from "fs/promises";
 import { generateEntityFileTypes } from "./entity-parse.js";
+import path from "path";
 
 export const modelsToFunction = {
 	arktype: "ArkType",
@@ -39,6 +40,11 @@ export type GenerateEntityValidatorOptions = {
 	 * @default "typebox"
 	 */
 	targetValidationLibrary?: keyof typeof modelsToFunction | undefined;
+	/**
+	 * Whether to generate partial types instead of inline primary key references.
+	 * @default true for typebox and false for other libraries
+	 */
+	partials?: boolean | undefined;
 };
 
 /**
@@ -54,14 +60,20 @@ export async function generateEntityValidator(opts: GenerateEntityValidatorOptio
 
 	const entities = await readdir(entitiesDir);
 
+	// filter to only include TypeScript files
+	const extensions = new Set([".ts", ".mts", ".cts", ".js", ".mjs", ".cjs", ".jsx", ".tsx"]);
+	const entityFiles = entities.filter((entity) => extensions.has(path.extname(entity)));
+
 	// read the entity files
-	const entityContents = await Promise.all(entities.map((entity) => readFile(`${entitiesDir}/${entity}`, "utf-8")));
+	const entityContents = await Promise.all(entityFiles.map((entity) => readFile(`${entitiesDir}/${entity}`, "utf-8")));
+
+	const isTypeBox = opts.targetValidationLibrary === undefined || opts.targetValidationLibrary === "typebox";
 
 	// generate the entity file types
-	const typesCode = generateEntityFileTypes(entityContents);
+	const typesCode = generateEntityFileTypes(entityContents, { usePartialTypes: opts.partials ?? isTypeBox });
 
 	let output: string;
-	if (opts.targetValidationLibrary === undefined || opts.targetValidationLibrary === "typebox") {
+	if (isTypeBox || opts.targetValidationLibrary === undefined) {
 		output = Codegen.TypeScriptToTypeBox.Generate(typesCode, {
 			useExportEverything: true,
 			useTypeBoxImport: true,
@@ -73,13 +85,13 @@ export async function generateEntityValidator(opts: GenerateEntityValidatorOptio
 
 		// get the model name
 		const modelName = modelsToFunction[opts.targetValidationLibrary];
-		
+
 		// generate the code
 		output = Codegen[`ModelTo${modelName}`].Generate(model);
 	} else {
 		throw new Error(`Invalid target validation library: ${opts.targetValidationLibrary}.\nValid options are: ${Object.keys(modelsToFunction).join(", ")}.`);
 	}
-	
+
 	// write the code to a file
 	if (opts.write) {
 		await writeFile(opts.outputFile ?? "./src/entity-validators.ts", output);
