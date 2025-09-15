@@ -123,15 +123,18 @@ describe("Integration Tests", () => {
       expect(result).toContain("title: Type.String()");
       expect(result).toContain("content: Type.String()");
       expect(result).toContain("publishedAt: Type.Date()");
-      expect(result).toContain("author: Type.Pick(schema.User, Type.Literal(\"id\"))"); // User entity with Pick type
+      expect(result).toContain("author: Type.Object({"); // User entity with inline object type
+      expect(result).toContain("id: Type.Number()"); // User ID field
       expect(result).toContain("comments: Type.Any()"); // Collection becomes any when entity ID types are not available
 
       // Check Comment entity
       expect(result).toContain("export const Comment = Type.Object({");
       expect(result).toContain("content: Type.String()");
       expect(result).toContain("createdAt: Type.Date()");
-      expect(result).toContain("post: Type.Pick(schema.Post, Type.Literal(\"id\"))"); // Post entity with Pick type
-      expect(result).toContain("author: Type.Pick(schema.User, Type.Literal(\"id\"))"); // User entity with Pick type
+      expect(result).toContain("post: Type.Object({"); // Post entity with inline object type
+      expect(result).toContain("id: Type.String()"); // Post ID field
+      expect(result).toContain("author: Type.Object({"); // User entity with inline object type
+      expect(result).toContain("id: Type.Number()"); // User ID field
     });
 
     it("should write validators to file", async () => {
@@ -240,17 +243,20 @@ describe("Integration Tests", () => {
       expect(result).toContain("namespace schema {");
       expect(result).toContain("}");
       
-      // Check that entity references are replaced with Pick types containing primary key using schema.<Entity>
+      // Check that entity references are replaced with inline object types containing primary key
       expect(result).toContain("export type User = {");
       expect(result).toContain("posts: any"); // Collection becomes any when entity ID types are not available
 
       expect(result).toContain("export type Post = {");
-      expect(result).toContain("author: Pick<schema.User, \"id\">"); // User entity with Pick type
+      expect(result).toContain("author: {"); // User entity with inline object type
+      expect(result).toContain("id: number;"); // User ID field
       expect(result).toContain("comments: any"); // Collection becomes any when entity ID types are not available
 
       expect(result).toContain("export type Comment = {");
-      expect(result).toContain("post: Pick<schema.Post, \"id\">"); // Post entity with Pick type
-      expect(result).toContain("author: Pick<schema.User, \"id\">"); // User entity with Pick type
+      expect(result).toContain("post: {"); // Post entity with inline object type
+      expect(result).toContain("id: string;"); // Post ID field
+      expect(result).toContain("author: {"); // User entity with inline object type
+      expect(result).toContain("id: number;"); // User ID field
 
       // Check that imports and decorators are removed
       expect(result).not.toContain("import {");

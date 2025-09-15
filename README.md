@@ -178,7 +178,9 @@ export namespace schema {
     export const Book = Type.Object({
         id: Type.Number(),
         title: Type.String(),
-        author: Type.Pick(schema.User, Type.Literal("id"))
+        author: Type.Object({
+            id: Type.Number()
+        })
     }, { "$id": "schema.Book" })
 
     export type User = Static<typeof User>

@@ -225,9 +225,11 @@ describe("entity-parse", () => {
       expect(result).toContain("namespace schema {");
       expect(result).toContain("}");
       
-      // Check that entity references are replaced with Pick types containing primary key using schema.<Entity>
-      expect(result).toContain("author: Pick<schema.User, \"id\">"); // User entity with Pick type
-      expect(result).toContain("post: Pick<schema.Post, \"id\">"); // Post entity with Pick type
+      // Check that entity references are replaced with inline object types containing primary key
+      expect(result).toContain("author: {"); // User entity with inline object type
+      expect(result).toContain("id: number;"); // User ID field
+      expect(result).toContain("post: {"); // Post entity with inline object type
+      expect(result).toContain("id: string;"); // Post ID field
       expect(result).toContain("posts: any"); // Collection becomes any when entity ID types are not available
       expect(result).toContain("comments: any"); // Collection becomes any when entity ID types are not available
     });
