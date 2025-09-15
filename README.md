@@ -171,22 +171,46 @@ export class Book {
 And then generate validation schemas (e.g., with TypeBox):
 
 ```typescript
-import { Type } from '@sinclair/typebox';
+import { Type, Static } from '@sinclair/typebox'
 
 export namespace schema {
-  export const User = Type.Object({
-    id: Type.Number(),
-    name: Type.String(),
-    email: Type.String(),
-    books: Type.Array(Type.Pick(Book, Type.Literal("id")))
-  });
+    export type Book = Static<typeof Book>
+    export const Book = Type.Object({
+        id: Type.Number(),
+        title: Type.String(),
+        author: Type.Pick(schema.User, Type.Literal("id"))
+    }, { "$id": "schema.Book" })
 
-  export const Book = Type.Object({
-    id: Type.Number(),
-    title: Type.String(),
-    author: Type.Pick(User, Type.Literal("id"))
-  });
+    export type User = Static<typeof User>
+    export const User = Type.Object({
+        id: Type.Number(),
+        name: Type.String(),
+        email: Type.String(),
+        books: Type.Any()
+    }, { "$id": "schema.User" })
+
 }
+```
+
+or for Zod
+
+```typescript
+import { z } from 'zod'
+
+export type schema_Book = z.infer<typeof schema_Book>
+export const schema_Book = z.object({
+    id: z.number(),
+    title: z.string(),
+    author: z.object({})
+})
+
+export type schema_User = z.infer<typeof schema_User>
+export const schema_User = z.object({
+    id: z.number(),
+    name: z.string(),
+    email: z.string(),
+    books: z.any()
+})
 ```
 
 ### Programmatic Usage

@@ -259,7 +259,7 @@ describe("entity-parse", () => {
 
     it("should handle empty array", () => {
       const result = generateEntityFileTypes([]);
-      expect(result).toBe("namespace schema {\n\n}");
+      expect(result).toBe("export namespace schema {\n\n}");
     });
   });
 });
