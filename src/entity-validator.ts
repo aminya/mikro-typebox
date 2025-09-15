@@ -39,6 +39,11 @@ export type GenerateEntityValidatorOptions = {
 	 * @default "typebox"
 	 */
 	targetValidationLibrary?: keyof typeof modelsToFunction | undefined;
+	/**
+	 * Whether to generate partial types instead of inline primary key references.
+	 * @default true for typebox and false for other libraries
+	 */
+	partials?: boolean | undefined;
 };
 
 /**
@@ -57,11 +62,13 @@ export async function generateEntityValidator(opts: GenerateEntityValidatorOptio
 	// read the entity files
 	const entityContents = await Promise.all(entities.map((entity) => readFile(`${entitiesDir}/${entity}`, "utf-8")));
 
+	const isTypeBox = opts.targetValidationLibrary === undefined || opts.targetValidationLibrary === "typebox";
+
 	// generate the entity file types
-	const typesCode = generateEntityFileTypes(entityContents);
+	const typesCode = generateEntityFileTypes(entityContents, opts.partials ?? isTypeBox);
 
 	let output: string;
-	if (opts.targetValidationLibrary === undefined || opts.targetValidationLibrary === "typebox") {
+	if (isTypeBox || opts.targetValidationLibrary === undefined) {
 		output = Codegen.TypeScriptToTypeBox.Generate(typesCode, {
 			useExportEverything: true,
 			useTypeBoxImport: true,

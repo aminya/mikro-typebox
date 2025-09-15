@@ -3,7 +3,7 @@ import * as ts from "typescript";
 /**
  * Process multiple entity files and generate types with proper entity ID replacement
  */
-export function generateEntityFileTypes(fileContents: string[]): string {
+export function generateEntityFileTypes(fileContents: string[], partials: boolean = false): string {
 	// First pass: collect all entities and their primary key info from all files
 	const entityPrimaryKeys = new Map<string, { fieldName: string; fieldType: ts.TypeNode }>();
 	const allCode = fileContents.join("\n");
@@ -13,8 +13,8 @@ export function generateEntityFileTypes(fileContents: string[]): string {
 	visitEntities(sourceFile, entityPrimaryKeys);
 
 	// Second pass: process each file with the complete entity map
-	const generatedTypes = fileContents.map((code) => generateEntityTypes(code, entityPrimaryKeys)).join("\n");
-	
+	const generatedTypes = fileContents.map((code) => generateEntityTypes(code, partials, entityPrimaryKeys)).join("\n");
+
 	// Wrap the generated types in a namespace schema
 	return `export namespace schema {\n${generatedTypes}\n}`;
 }
@@ -22,7 +22,7 @@ export function generateEntityFileTypes(fileContents: string[]): string {
 /**
  * Cleanup the code to remove the imports and the calls to the imported symbols
  */
-export function generateEntityTypes(code: string, entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }> = new Map()): string {
+export function generateEntityTypes(code: string, partials: boolean = false, entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }> = new Map()): string {
 	const sourceFile = ts.createSourceFile("temp.ts", code, ts.ScriptTarget.Latest, true);
 
 	// Collect imports and their symbols
@@ -39,7 +39,7 @@ export function generateEntityTypes(code: string, entityPrimaryKeys: Map<string,
 
 	// Apply the transformer
 	const result = ts.transform(sourceFile, [
-		(ctx) => transformer(ctx, importNodes, callExpressionsToRemove, entityPrimaryKeys)
+		(ctx) => transformer(ctx, importNodes, callExpressionsToRemove, entityPrimaryKeys, partials)
 	]);
 	const transformedSourceFile = result.transformed[0];
 	if (!transformedSourceFile) {
@@ -110,10 +110,15 @@ function visitCalls(
  * Create a named partial type (Partial<Entity>) with required ID and optional other properties
  */
 function createPartialEntityType(
-	entityName: string, 
+	entityName: string,
 	primaryKeyInfo: { fieldName: string; fieldType: ts.TypeNode },
-	allProperties: ts.PropertySignature[]
-): ts.TypeAliasDeclaration {
+	allProperties: ts.PropertySignature[],
+	partial: boolean
+): ts.TypeAliasDeclaration | ts.TypeLiteralNode {
+	if (!partial) {
+		return createPrimaryKeyObjectType(primaryKeyInfo);
+	}
+
 	// Create the partial type with required ID and optional other properties
 	const partialProperties = allProperties.map(prop => {
 		if (ts.isPropertySignature(prop) && ts.isIdentifier(prop.name) && prop.name.text === primaryKeyInfo.fieldName) {
@@ -200,7 +205,7 @@ function transformCollectionType(
 	) {
 		if (type.typeArguments && type.typeArguments.length > 0) {
 			// Replace entity types in the generic arguments with inline primary key objects for deep references
-			const transformedTypeArgs = type.typeArguments.map((typeArg) => 
+			const transformedTypeArgs = type.typeArguments.map((typeArg) =>
 				replaceEntityTypeWithInlinePrimaryKey(typeArg, entityPrimaryKeys)
 			);
 			return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Array"), transformedTypeArgs);
@@ -216,16 +221,21 @@ function transformCollectionType(
  */
 function transformTypeNode(
 	type: ts.TypeNode,
-	entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>
+	entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>,
+	partials: boolean
 ): ts.TypeNode {
 	// First try to replace Collection<T> with Array<T>
 	const collectionTransformed = transformCollectionType(type, entityPrimaryKeys);
 	if (collectionTransformed !== type) {
 		return collectionTransformed;
 	}
-	
+
 	// Then try to replace entity types with primary key objects
-	return replaceEntityTypeWithPrimaryKey(collectionTransformed, entityPrimaryKeys);
+	if (partials) {
+		return replaceEntityTypeWithPrimaryKey(collectionTransformed, entityPrimaryKeys);
+	} else {
+		return replaceEntityTypeWithInlinePrimaryKey(collectionTransformed, entityPrimaryKeys);
+	}
 }
 
 /**
@@ -283,7 +293,8 @@ const transformer = (
 	context: ts.TransformationContext,
 	importNodes: Set<ts.Node>,
 	callExpressionsToRemove: Set<ts.Node>,
-	entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>
+	entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>,
+	partials: boolean
 ) => {
 	return (sourceFile: ts.SourceFile) => {
 		const visitor = (node: ts.Node): ts.Node | ts.Node[] | undefined => {
@@ -310,7 +321,7 @@ const transformer = (
 							let type = member.type || ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword);
 
 							// Transform the type by replacing entities and collections
-							type = transformTypeNode(type, entityPrimaryKeys);
+							type = transformTypeNode(type, entityPrimaryKeys, partials);
 
 							return ts.factory.createPropertySignature(undefined, propertyName, member.questionToken, type);
 						}
@@ -329,7 +340,7 @@ const transformer = (
 				// Create the partial type if this is an entity with a primary key
 				const primaryKeyInfo = entityPrimaryKeys.get(className);
 				if (primaryKeyInfo) {
-					const partialType = createPartialEntityType(className, primaryKeyInfo, propertySignatures);
+					const partialType = createPartialEntityType(className, primaryKeyInfo, propertySignatures, partials);
 					return [mainType, partialType];
 				}
 
@@ -359,12 +370,12 @@ const transformer = (
 
 			// Transform type reference nodes (Collection<T> and entity types)
 			if (ts.isTypeReferenceNode(node)) {
-				return transformTypeNode(node, entityPrimaryKeys);
+				return transformTypeNode(node, entityPrimaryKeys, partials);
 			}
 
 			// Transform property signatures with entity types
 			if (ts.isPropertySignature(node) && node.type) {
-				const transformedType = transformTypeNode(node.type, entityPrimaryKeys);
+				const transformedType = transformTypeNode(node.type, entityPrimaryKeys, partials);
 				if (transformedType !== node.type) {
 					return ts.factory.createPropertySignature(node.modifiers, node.name, node.questionToken, transformedType);
 				}

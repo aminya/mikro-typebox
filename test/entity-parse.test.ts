@@ -219,7 +219,7 @@ describe("entity-parse", () => {
         }
       `;
 
-      const result = generateEntityFileTypes([userCode, postCode, commentCode]);
+      const result = generateEntityFileTypes([userCode, postCode, commentCode], true);
       
       // Check that the result is wrapped in namespace schema
       expect(result).toContain("namespace schema {");
@@ -265,6 +265,51 @@ describe("entity-parse", () => {
     it("should handle empty array", () => {
       const result = generateEntityFileTypes([]);
       expect(result).toBe("export namespace schema {\n\n}");
+    });
+
+    it("should generate partial types when partials: true", () => {
+      const userCode = `
+        import { Entity, PrimaryKey, Property, ManyToOne } from "@mikro-orm/core";
+        import { Post } from "./Post.js";
+
+        @Entity()
+        export class User {
+          @PrimaryKey()
+          id!: number;
+
+          @Property()
+          name!: string;
+
+          @ManyToOne(() => Post)
+          post!: Post;
+        }
+      `;
+
+      const postCode = `
+        import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
+
+        @Entity()
+        export class Post {
+          @PrimaryKey()
+          id!: string;
+
+          @Property()
+          title!: string;
+        }
+      `;
+
+      const result = generateEntityFileTypes([userCode, postCode], true);
+      
+      // Check that the result is wrapped in namespace schema
+      expect(result).toContain("namespace schema {");
+      expect(result).toContain("}");
+      
+      // Check that entity references are replaced with partial types
+      expect(result).toContain("post: schema.PartialPost"); // Post entity with partial type
+      
+      // Check that partial types are generated
+      expect(result).toContain("export type PartialUser = {");
+      expect(result).toContain("export type PartialPost = {");
     });
   });
 });
