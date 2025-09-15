@@ -39,6 +39,7 @@ npx mikro-typebox generate --target zod --entities ./src/models --output ./src/e
 - `-o, --output <file>`: Output file path (default: `./src/entity-validators.ts`)
 - `--no-write`: Print the code to the console instead of writing to a file (default: writes to a file)
 - `-t, --target <library>`: Target validation library (default: `typebox`)
+- `--partials`, `--no-partials`: Generate partial types instead of inline primary key references (default: `true` for `typebox`)
 
 ### Supported Validation Libraries
 
@@ -68,6 +69,7 @@ Generates validation schemas from Mikro-ORM entities.
 - `options.outputFile` (optional): File path to write the generated code (default: `"./src/entity-validators.ts"`)
 - `options.write` (optional): Whether to write the code to a file (default: `true`)
 - `options.targetValidationLibrary` (optional): Target validation library (default: `"typebox"`)
+- `options.partials` (optional): Whether to generate partial types instead of inline primary key references (default: `true` for `typebox`)
 
 
 ### `generateEntityTypes(code, entityIdTypes)`
