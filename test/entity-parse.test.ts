@@ -221,9 +221,13 @@ describe("entity-parse", () => {
 
       const result = generateEntityFileTypes([userCode, postCode, commentCode]);
       
-      // Check that entity references are replaced with Pick types containing primary key
-      expect(result).toContain("author: Pick<User, \"id\">"); // User entity with Pick type
-      expect(result).toContain("post: Pick<Post, \"id\">"); // Post entity with Pick type
+      // Check that the result is wrapped in namespace schema
+      expect(result).toContain("namespace schema {");
+      expect(result).toContain("}");
+      
+      // Check that entity references are replaced with Pick types containing primary key using schema.<Entity>
+      expect(result).toContain("author: Pick<schema.User, \"id\">"); // User entity with Pick type
+      expect(result).toContain("post: Pick<schema.Post, \"id\">"); // Post entity with Pick type
       expect(result).toContain("posts: any"); // Collection becomes any when entity ID types are not available
       expect(result).toContain("comments: any"); // Collection becomes any when entity ID types are not available
     });
@@ -244,6 +248,10 @@ describe("entity-parse", () => {
 
       const result = generateEntityFileTypes([code]);
       
+      // Check that the result is wrapped in namespace schema
+      expect(result).toContain("namespace schema {");
+      expect(result).toContain("}");
+      
       expect(result).toContain("export type User = {");
       expect(result).toContain("id: number");
       expect(result).toContain("name: string");
@@ -251,7 +259,7 @@ describe("entity-parse", () => {
 
     it("should handle empty array", () => {
       const result = generateEntityFileTypes([]);
-      expect(result).toBe("");
+      expect(result).toBe("namespace schema {\n\n}");
     });
   });
 });

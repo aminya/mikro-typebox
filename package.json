@@ -28,6 +28,7 @@
   },
   "devDependencies": {
     "@mikro-orm/core": "^6.5.3",
+    "@sinclair/typebox": "^0.34.41",
     "@tsconfig/strictest": "^2.0.5",
     "@types/bun": "^1.2.22"
   },

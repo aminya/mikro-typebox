@@ -108,6 +108,7 @@ describe("Integration Tests", () => {
 
       // Check TypeBox imports
       expect(result).toContain("import { Type, Static } from '@sinclair/typebox'");
+      expect(result).toContain("export namespace schema {");
 
       // Check User entity
       expect(result).toContain("export const User = Type.Object({");
@@ -122,15 +123,15 @@ describe("Integration Tests", () => {
       expect(result).toContain("title: Type.String()");
       expect(result).toContain("content: Type.String()");
       expect(result).toContain("publishedAt: Type.Date()");
-      expect(result).toContain("author: Type.Pick(User, Type.Literal(\"id\"))"); // User entity with Pick type
+      expect(result).toContain("author: Type.Pick(schema.User, Type.Literal(\"id\"))"); // User entity with Pick type
       expect(result).toContain("comments: Type.Any()"); // Collection becomes any when entity ID types are not available
 
       // Check Comment entity
       expect(result).toContain("export const Comment = Type.Object({");
       expect(result).toContain("content: Type.String()");
       expect(result).toContain("createdAt: Type.Date()");
-      expect(result).toContain("post: Type.Pick(Post, Type.Literal(\"id\"))"); // Post entity with Pick type
-      expect(result).toContain("author: Type.Pick(User, Type.Literal(\"id\"))"); // User entity with Pick type
+      expect(result).toContain("post: Type.Pick(schema.Post, Type.Literal(\"id\"))"); // Post entity with Pick type
+      expect(result).toContain("author: Type.Pick(schema.User, Type.Literal(\"id\"))"); // User entity with Pick type
     });
 
     it("should write validators to file", async () => {
@@ -144,6 +145,7 @@ describe("Integration Tests", () => {
       expect(existsSync(testOutputFile)).toBe(true);
       
       const content = await Bun.file(testOutputFile).text();
+      expect(content).toContain("export namespace schema {");
       expect(content).toContain("export const User = Type.Object({");
       expect(content).toContain("export const Post = Type.Object({");
       expect(content).toContain("export const Comment = Type.Object({");
@@ -162,7 +164,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("import { z } from 'zod'");
 
       // Check User entity
-      expect(result).toContain("export const User = z.object({");
+      expect(result).toContain("export const schema_User = z.object({");
       expect(result).toContain("id: z.number()");
       expect(result).toContain("name: z.string()");
       expect(result).toContain("email: z.string()");
@@ -170,7 +172,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("posts: z.any()"); // Collection becomes any when entity ID types are not available
 
       // Check Post entity
-      expect(result).toContain("export const Post = z.object({");
+      expect(result).toContain("export const schema_Post = z.object({");
       expect(result).toContain("title: z.string()");
       expect(result).toContain("content: z.string()");
       expect(result).toContain("publishedAt: z.date()");
@@ -179,7 +181,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("comments: z.any()"); // Collection becomes any when entity ID types are not available
 
       // Check Comment entity
-      expect(result).toContain("export const Comment = z.object({");
+      expect(result).toContain("export const schema_Comment = z.object({");
       expect(result).toContain("content: z.string()");
       expect(result).toContain("createdAt: z.date()");
       expect(result).toContain("post: z.object({"); // Post entity with object type
@@ -199,7 +201,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("import * as v from 'valibot'");
 
       // Check User entity
-      expect(result).toContain("export const User = v.object({");
+      expect(result).toContain("export const schema_User = v.object({");
       expect(result).toContain("id: v.number()");
       expect(result).toContain("name: v.string()");
       expect(result).toContain("email: v.string()");
@@ -207,7 +209,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("posts: v.any()"); // Collection becomes any when entity ID types are not available
 
       // Check Post entity
-      expect(result).toContain("export const Post = v.object({");
+      expect(result).toContain("export const schema_Post = v.object({");
       expect(result).toContain("title: v.string()");
       expect(result).toContain("content: v.string()");
       expect(result).toContain("publishedAt: v.date()");
@@ -216,7 +218,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("comments: v.any()"); // Collection becomes any when entity ID types are not available
 
       // Check Comment entity
-      expect(result).toContain("export const Comment = v.object({");
+      expect(result).toContain("export const schema_Comment = v.object({");
       expect(result).toContain("content: v.string()");
       expect(result).toContain("createdAt: v.date()");
       expect(result).toContain("post: v.object({"); // Post entity with object type
@@ -234,17 +236,21 @@ describe("Integration Tests", () => {
 
       const result = generateEntityFileTypes(entityFiles);
 
-      // Check that entity references are replaced with Pick types containing primary key
+      // Check that the result is wrapped in namespace schema
+      expect(result).toContain("namespace schema {");
+      expect(result).toContain("}");
+      
+      // Check that entity references are replaced with Pick types containing primary key using schema.<Entity>
       expect(result).toContain("export type User = {");
       expect(result).toContain("posts: any"); // Collection becomes any when entity ID types are not available
 
       expect(result).toContain("export type Post = {");
-      expect(result).toContain("author: Pick<User, \"id\">"); // User entity with Pick type
+      expect(result).toContain("author: Pick<schema.User, \"id\">"); // User entity with Pick type
       expect(result).toContain("comments: any"); // Collection becomes any when entity ID types are not available
 
       expect(result).toContain("export type Comment = {");
-      expect(result).toContain("post: Pick<Post, \"id\">"); // Post entity with Pick type
-      expect(result).toContain("author: Pick<User, \"id\">"); // User entity with Pick type
+      expect(result).toContain("post: Pick<schema.Post, \"id\">"); // Post entity with Pick type
+      expect(result).toContain("author: Pick<schema.User, \"id\">"); // User entity with Pick type
 
       // Check that imports and decorators are removed
       expect(result).not.toContain("import {");

@@ -20,8 +20,6 @@ npm install --save-dev mikro-typebox
 
 The package includes a command-line interface for easy usage:
 
-### Basic Commands
-
 ```bash
 # Generate typebox schema from `./src/entities` to `./src/entity-validators.ts`
 npx mikro-typebox generate
@@ -91,33 +89,17 @@ Processes multiple entity files and generates types with proper entity ID replac
 
 ## Usage Examples
 
-### Basic Usage with TypeBox
-
 ```typescript
 import { generateEntityValidator } from 'mikro-typebox';
 
-// Generate TypeBox schemas from entities (prints to console)
-const validatorCode = await generateEntityValidator({
-  entitiesDir: './src/entities',
-  write: false
-});
-
-console.log(validatorCode);
-
-// Generate and save to file
+// Generate for TypeBox
 await generateEntityValidator({
   entitiesDir: './src/entities',
   outputFile: './src/validators.ts',
   write: true
 });
-```
 
-### Using Different Validation Libraries
-
-```typescript
-import { generateEntityValidator } from 'mikro-typebox';
-
-// Generate Zod schemas
+// Generate for Zod
 const zodCode = await generateEntityValidator({
   entitiesDir: './src/entities',
   targetValidationLibrary: 'zod',
@@ -125,7 +107,8 @@ const zodCode = await generateEntityValidator({
   write: true
 });
 
-// Generate Valibot schemas
+
+// Generate for Valibot
 const valibotCode = await generateEntityValidator({
   entitiesDir: './src/entities',
   targetValidationLibrary: 'valibot',
@@ -185,40 +168,25 @@ export class Book {
 }
 ```
 
-The library will generate TypeScript types like this:
-
-```typescript
-export type User = {
-  id: number;
-  name: string;
-  email: string;
-  books: Array<number>; // Book entity replaced with its ID type
-};
-
-export type Book = {
-  id: number;
-  title: string;
-  author: number; // User entity replaced with its ID type
-};
-```
-
 And then generate validation schemas (e.g., with TypeBox):
 
 ```typescript
 import { Type } from '@sinclair/typebox';
 
-export const UserSchema = Type.Object({
-  id: Type.Number(),
-  name: Type.String(),
-  email: Type.String(),
-  books: Type.Array(Type.Number())
-});
+namespace schema {
+  export const User = Type.Object({
+    id: Type.Number(),
+    name: Type.String(),
+    email: Type.String(),
+    books: Type.Array(Type.Pick(Book, Type.Literal("id")))
+  });
 
-export const BookSchema = Type.Object({
-  id: Type.Number(),
-  title: Type.String(),
-  author: Type.Number()
-});
+  export const Book = Type.Object({
+    id: Type.Number(),
+    title: Type.String(),
+    author: Type.Pick(User, Type.Literal("id"))
+  });
+}
 ```
 
 ### Programmatic Usage

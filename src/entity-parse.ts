@@ -13,7 +13,10 @@ export function generateEntityFileTypes(fileContents: string[]): string {
 	visitEntities(sourceFile, entityIdTypes);
 
 	// Second pass: process each file with the complete entity map
-	return fileContents.map((code) => generateEntityTypes(code, entityIdTypes)).join("\n");
+	const generatedTypes = fileContents.map((code) => generateEntityTypes(code, entityIdTypes)).join("\n");
+	
+	// Wrap the generated types in a namespace schema
+	return `namespace schema {\n${generatedTypes}\n}`;
 }
 
 /**
@@ -191,7 +194,13 @@ const transformer = (
 									type = ts.factory.createTypeReferenceNode(
 										ts.factory.createIdentifier("Pick"),
 										[
-											ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(entityName), undefined),
+											ts.factory.createTypeReferenceNode(
+												ts.factory.createQualifiedName(
+													ts.factory.createIdentifier("schema"),
+													ts.factory.createIdentifier(entityName)
+												),
+												undefined
+											),
 											ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral("id"))
 										]
 									);
@@ -215,12 +224,18 @@ const transformer = (
 												return ts.factory.createTypeReferenceNode(
 													ts.factory.createIdentifier("Pick"),
 													[
-														ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(entityName), undefined),
+														ts.factory.createTypeReferenceNode(
+															ts.factory.createQualifiedName(
+																ts.factory.createIdentifier("schema"),
+																ts.factory.createIdentifier(entityName)
+															),
+															undefined
+														),
 														ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral("id"))
 													]
 												);
 											}
-											return typeArg;
+										 return typeArg;
 										}
 										return typeArg;
 									});
@@ -278,7 +293,13 @@ const transformer = (
 								return ts.factory.createTypeReferenceNode(
 									ts.factory.createIdentifier("Pick"),
 									[
-										ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(entityName), undefined),
+										ts.factory.createTypeReferenceNode(
+											ts.factory.createQualifiedName(
+												ts.factory.createIdentifier("schema"),
+												ts.factory.createIdentifier(entityName)
+											),
+											undefined
+										),
 										ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral("id"))
 									]
 								);
@@ -302,7 +323,13 @@ const transformer = (
 					return ts.factory.createTypeReferenceNode(
 						ts.factory.createIdentifier("Pick"),
 						[
-							ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(entityName), undefined),
+							ts.factory.createTypeReferenceNode(
+								ts.factory.createQualifiedName(
+									ts.factory.createIdentifier("schema"),
+									ts.factory.createIdentifier(entityName)
+								),
+								undefined
+							),
 							ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral("id"))
 						]
 					);
@@ -324,7 +351,13 @@ const transformer = (
 					const entityObjectType = ts.factory.createTypeReferenceNode(
 						ts.factory.createIdentifier("Pick"),
 						[
-							ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(entityName), undefined),
+							ts.factory.createTypeReferenceNode(
+								ts.factory.createQualifiedName(
+									ts.factory.createIdentifier("schema"),
+									ts.factory.createIdentifier(entityName)
+								),
+								undefined
+							),
 							ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral("id"))
 						]
 					);
