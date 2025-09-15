@@ -58,6 +58,7 @@ describe("CLI", () => {
 
       const content = await Bun.file(testOutputFile).text();
       expect(content).toContain("import { Type, Static } from '@sinclair/typebox'");
+      expect(content).toContain("export namespace schema {");
       expect(content).toContain("export const User = Type.Object({");
     });
 
@@ -81,7 +82,7 @@ describe("CLI", () => {
 
       const content = await Bun.file(testOutputFile).text();
       expect(content).toContain("import { z } from 'zod'");
-      expect(content).toContain("export const User = z.object({");
+      expect(content).toContain("export const schema_User = z.object({");
     });
 
     it("should print to console when --no-write is used", async () => {
@@ -212,7 +213,7 @@ describe("CLI", () => {
 
       const content = await Bun.file(testOutputFile).text();
       expect(content).toContain("import * as v from 'valibot'");
-      expect(content).toContain("export const User = v.object({");
+      expect(content).toContain("export const schema_User = v.object({");
     });
   });
 

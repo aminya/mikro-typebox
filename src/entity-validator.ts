@@ -60,7 +60,6 @@ export async function generateEntityValidator(opts: GenerateEntityValidatorOptio
 	// generate the entity file types
 	const typesCode = generateEntityFileTypes(entityContents);
 
-
 	let output: string;
 	if (opts.targetValidationLibrary === undefined || opts.targetValidationLibrary === "typebox") {
 		output = Codegen.TypeScriptToTypeBox.Generate(typesCode, {
@@ -80,7 +79,7 @@ export async function generateEntityValidator(opts: GenerateEntityValidatorOptio
 	} else {
 		throw new Error(`Invalid target validation library: ${opts.targetValidationLibrary}.\nValid options are: ${Object.keys(modelsToFunction).join(", ")}.`);
 	}
-
+	
 	// write the code to a file
 	if (opts.write) {
 		await writeFile(opts.outputFile ?? "./src/entity-validators.ts", output);
@@ -88,3 +87,4 @@ export async function generateEntityValidator(opts: GenerateEntityValidatorOptio
 
 	return output;
 }
+

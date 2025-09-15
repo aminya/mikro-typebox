@@ -13,7 +13,10 @@ export function generateEntityFileTypes(fileContents: string[]): string {
 	visitEntities(sourceFile, entityIdTypes);
 
 	// Second pass: process each file with the complete entity map
-	return fileContents.map((code) => generateEntityTypes(code, entityIdTypes)).join("\n");
+	const generatedTypes = fileContents.map((code) => generateEntityTypes(code, entityIdTypes)).join("\n");
+	
+	// Wrap the generated types in a namespace schema
+	return `export namespace schema {\n${generatedTypes}\n}`;
 }
 
 /**
@@ -181,12 +184,26 @@ const transformer = (
 							const propertyName = member.name.text;
 							let type = member.type || ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword);
 
-							// Replace entity type references with their ID types
+							// Replace entity type references with object types containing primary key
 							if (ts.isTypeReferenceNode(type) && ts.isIdentifier(type.typeName)) {
 								const entityName = type.typeName.text;
 								const idType = entityIdTypes.get(entityName);
 								if (idType) {
-									type = idType;
+									// Create a type that has the primary key as required and other properties as optional
+									// This allows for both unpopulated (just ID) and populated (full entity) scenarios
+									type = ts.factory.createTypeReferenceNode(
+										ts.factory.createIdentifier("Pick"),
+										[
+											ts.factory.createTypeReferenceNode(
+												ts.factory.createQualifiedName(
+													ts.factory.createIdentifier("schema"),
+													ts.factory.createIdentifier(entityName)
+												),
+												undefined
+											),
+											ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral("id"))
+										]
+									);
 								}
 							}
 
@@ -202,7 +219,23 @@ const transformer = (
 										if (ts.isTypeReferenceNode(typeArg) && ts.isIdentifier(typeArg.typeName)) {
 											const entityName = typeArg.typeName.text;
 											const idType = entityIdTypes.get(entityName);
-											return idType || typeArg;
+											if (idType) {
+												// Create a type that has the primary key as required and other properties as optional
+												return ts.factory.createTypeReferenceNode(
+													ts.factory.createIdentifier("Pick"),
+													[
+														ts.factory.createTypeReferenceNode(
+															ts.factory.createQualifiedName(
+																ts.factory.createIdentifier("schema"),
+																ts.factory.createIdentifier(entityName)
+															),
+															undefined
+														),
+														ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral("id"))
+													]
+												);
+											}
+											return typeArg;
 										}
 										return typeArg;
 									});
@@ -255,7 +288,23 @@ const transformer = (
 						if (ts.isTypeReferenceNode(typeArg) && ts.isIdentifier(typeArg.typeName)) {
 							const entityName = typeArg.typeName.text;
 							const idType = entityIdTypes.get(entityName);
-							return idType || typeArg;
+							if (idType) {
+								// Create a type that has the primary key as required and other properties as optional
+								return ts.factory.createTypeReferenceNode(
+									ts.factory.createIdentifier("Pick"),
+									[
+										ts.factory.createTypeReferenceNode(
+											ts.factory.createQualifiedName(
+												ts.factory.createIdentifier("schema"),
+												ts.factory.createIdentifier(entityName)
+											),
+											undefined
+										),
+										ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral("id"))
+									]
+								);
+							}
+							return typeArg;
 						}
 						return typeArg;
 					});
@@ -264,12 +313,26 @@ const transformer = (
 				return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Array"), node.typeArguments);
 			}
 
-			// Replace entity type references with their ID types
+			// Replace entity type references with object types containing primary key
 			if (ts.isTypeReferenceNode(node) && ts.isIdentifier(node.typeName)) {
 				const entityName = node.typeName.text;
 				const idType = entityIdTypes.get(entityName);
 				if (idType) {
-					return idType;
+					// Create a type that has the primary key as required and other properties as optional
+					// This allows for both unpopulated (just ID) and populated (full entity) scenarios
+					return ts.factory.createTypeReferenceNode(
+						ts.factory.createIdentifier("Pick"),
+						[
+							ts.factory.createTypeReferenceNode(
+								ts.factory.createQualifiedName(
+									ts.factory.createIdentifier("schema"),
+									ts.factory.createIdentifier(entityName)
+								),
+								undefined
+							),
+							ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral("id"))
+						]
+					);
 				}
 			}
 
@@ -283,7 +346,22 @@ const transformer = (
 				const entityName = node.type.typeName.text;
 				const idType = entityIdTypes.get(entityName);
 				if (idType) {
-					return ts.factory.createPropertySignature(node.modifiers, node.name, node.questionToken, idType);
+					// Create a type that has the primary key as required and other properties as optional
+					// This allows for both unpopulated (just ID) and populated (full entity) scenarios
+					const entityObjectType = ts.factory.createTypeReferenceNode(
+						ts.factory.createIdentifier("Pick"),
+						[
+							ts.factory.createTypeReferenceNode(
+								ts.factory.createQualifiedName(
+									ts.factory.createIdentifier("schema"),
+									ts.factory.createIdentifier(entityName)
+								),
+								undefined
+							),
+							ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral("id"))
+						]
+					);
+					return ts.factory.createPropertySignature(node.modifiers, node.name, node.questionToken, entityObjectType);
 				}
 			}
 

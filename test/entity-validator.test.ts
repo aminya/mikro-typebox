@@ -64,6 +64,7 @@ describe("entity-validator", () => {
       });
 
       expect(result).toContain("import { Type, Static } from '@sinclair/typebox'");
+      expect(result).toContain("export namespace schema {");
       expect(result).toContain("export const User = Type.Object({");
       expect(result).toContain("export const Post = Type.Object({");
       expect(result).toContain("id: Type.Number()");
@@ -79,7 +80,7 @@ describe("entity-validator", () => {
       });
 
       expect(zodResult).toContain("import { z } from 'zod'");
-      expect(zodResult).toContain("export const User = z.object({");
+      expect(zodResult).toContain("export const schema_User = z.object({");
 
       const valibotResult = await generateEntityValidator({
         entitiesDir: testEntitiesDir,
@@ -88,7 +89,7 @@ describe("entity-validator", () => {
       });
 
       expect(valibotResult).toContain("import * as v from 'valibot'");
-      expect(valibotResult).toContain("export const User = v.object({");
+      expect(valibotResult).toContain("export const schema_User = v.object({");
     });
 
     it("should write to file when write option is true", async () => {
@@ -102,6 +103,7 @@ describe("entity-validator", () => {
       
       const content = await Bun.file(testOutputFile).text();
       expect(content).toContain("import { Type, Static } from '@sinclair/typebox'");
+      expect(content).toContain("export namespace schema {");
     });
 
     it("should not write to file when write option is false", async () => {
@@ -186,8 +188,8 @@ describe("entity-validator", () => {
       });
 
       expect(result).toContain("export const Comment = Type.Object({");
-      expect(result).toContain("post: Type.String()"); // Post ID type
-      expect(result).toContain("author: Type.Number()"); // User ID type
+      expect(result).toContain("post: Type.Pick(schema.Post, Type.Literal(\"id\"))"); // Post entity with Pick type
+      expect(result).toContain("author: Type.Pick(schema.User, Type.Literal(\"id\"))"); // User entity with Pick type
     });
 
     it("should handle empty entities directory", async () => {
