@@ -121,6 +121,65 @@ function createPrimaryKeyObjectType(primaryKeyInfo: { fieldName: string; fieldTy
 }
 
 /**
+ * Replace entity type references with object types containing primary key
+ */
+function replaceEntityTypeWithPrimaryKey(
+	type: ts.TypeNode,
+	entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>
+): ts.TypeNode {
+	if (ts.isTypeReferenceNode(type) && ts.isIdentifier(type.typeName)) {
+		const entityName = type.typeName.text;
+		const primaryKeyInfo = entityPrimaryKeys.get(entityName);
+		if (primaryKeyInfo) {
+			return createPrimaryKeyObjectType(primaryKeyInfo);
+		}
+	}
+	return type;
+}
+
+/**
+ * Transform Collection<T> to Array<T> and replace entity types in generic arguments
+ */
+function transformCollectionType(
+	type: ts.TypeNode,
+	entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>
+): ts.TypeNode {
+	if (
+		ts.isTypeReferenceNode(type) &&
+		ts.isIdentifier(type.typeName) &&
+		type.typeName.text === "Collection"
+	) {
+		if (type.typeArguments && type.typeArguments.length > 0) {
+			// Replace entity types in the generic arguments
+			const transformedTypeArgs = type.typeArguments.map((typeArg) => 
+				replaceEntityTypeWithPrimaryKey(typeArg, entityPrimaryKeys)
+			);
+			return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Array"), transformedTypeArgs);
+		} else {
+			return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Array"), type.typeArguments);
+		}
+	}
+	return type;
+}
+
+/**
+ * Transform a type node by replacing entities and collections
+ */
+function transformTypeNode(
+	type: ts.TypeNode,
+	entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>
+): ts.TypeNode {
+	// First try to replace Collection<T> with Array<T>
+	const collectionTransformed = transformCollectionType(type, entityPrimaryKeys);
+	if (collectionTransformed !== type) {
+		return collectionTransformed;
+	}
+	
+	// Then try to replace entity types with primary key objects
+	return replaceEntityTypeWithPrimaryKey(collectionTransformed, entityPrimaryKeys);
+}
+
+/**
  * Collect entity classes and their primary key info
  */
 function visitEntities(node: ts.Node, entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>): void {
@@ -201,39 +260,8 @@ const transformer = (
 							const propertyName = member.name.text;
 							let type = member.type || ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword);
 
-							// Replace entity type references with object types containing primary key
-							if (ts.isTypeReferenceNode(type) && ts.isIdentifier(type.typeName)) {
-								const entityName = type.typeName.text;
-								const primaryKeyInfo = entityPrimaryKeys.get(entityName);
-								if (primaryKeyInfo) {
-									type = createPrimaryKeyObjectType(primaryKeyInfo);
-								}
-							}
-
-							// Handle Collection<T> replacement with entity types in generic arguments
-							if (
-								ts.isTypeReferenceNode(type) &&
-								ts.isIdentifier(type.typeName) &&
-								type.typeName.text === "Collection"
-							) {
-								if (type.typeArguments && type.typeArguments.length > 0) {
-									// Replace entity types in the generic arguments
-									const transformedTypeArgs = type.typeArguments.map((typeArg) => {
-										if (ts.isTypeReferenceNode(typeArg) && ts.isIdentifier(typeArg.typeName)) {
-											const entityName = typeArg.typeName.text;
-											const primaryKeyInfo = entityPrimaryKeys.get(entityName);
-											if (primaryKeyInfo) {
-												return createPrimaryKeyObjectType(primaryKeyInfo);
-											}
-										 return typeArg;
-										}
-										return typeArg;
-									});
-									type = ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Array"), transformedTypeArgs);
-								} else {
-									type = ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Array"), type.typeArguments);
-								}
-							}
+							// Transform the type by replacing entities and collections
+							type = transformTypeNode(type, entityPrimaryKeys);
 
 							return ts.factory.createPropertySignature(undefined, propertyName, member.questionToken, type);
 						}
@@ -270,47 +298,16 @@ const transformer = (
 				);
 			}
 
-			// Replace Collection<T> with Array<T> and handle entity types in generic arguments
-			if (ts.isTypeReferenceNode(node) && ts.isIdentifier(node.typeName) && node.typeName.text === "Collection") {
-				if (node.typeArguments && node.typeArguments.length > 0) {
-					// Replace entity types in the generic arguments
-					const transformedTypeArgs = node.typeArguments.map((typeArg) => {
-						if (ts.isTypeReferenceNode(typeArg) && ts.isIdentifier(typeArg.typeName)) {
-							const entityName = typeArg.typeName.text;
-							const primaryKeyInfo = entityPrimaryKeys.get(entityName);
-							if (primaryKeyInfo) {
-								return createPrimaryKeyObjectType(primaryKeyInfo);
-							}
-							return typeArg;
-						}
-						return typeArg;
-					});
-					return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Array"), transformedTypeArgs);
-				}
-				return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Array"), node.typeArguments);
+			// Transform type reference nodes (Collection<T> and entity types)
+			if (ts.isTypeReferenceNode(node)) {
+				return transformTypeNode(node, entityPrimaryKeys);
 			}
 
-			// Replace entity type references with object types containing primary key
-			if (ts.isTypeReferenceNode(node) && ts.isIdentifier(node.typeName)) {
-				const entityName = node.typeName.text;
-				const primaryKeyInfo = entityPrimaryKeys.get(entityName);
-				if (primaryKeyInfo) {
-					return createPrimaryKeyObjectType(primaryKeyInfo);
-				}
-			}
-
-			// Replace entity types in property signatures
-			if (
-				ts.isPropertySignature(node) &&
-				node.type &&
-				ts.isTypeReferenceNode(node.type) &&
-				ts.isIdentifier(node.type.typeName)
-			) {
-				const entityName = node.type.typeName.text;
-				const primaryKeyInfo = entityPrimaryKeys.get(entityName);
-				if (primaryKeyInfo) {
-					const entityObjectType = createPrimaryKeyObjectType(primaryKeyInfo);
-					return ts.factory.createPropertySignature(node.modifiers, node.name, node.questionToken, entityObjectType);
+			// Transform property signatures with entity types
+			if (ts.isPropertySignature(node) && node.type) {
+				const transformedType = transformTypeNode(node.type, entityPrimaryKeys);
+				if (transformedType !== node.type) {
+					return ts.factory.createPropertySignature(node.modifiers, node.name, node.questionToken, transformedType);
 				}
 			}
 
