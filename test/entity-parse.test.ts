@@ -221,9 +221,9 @@ describe("entity-parse", () => {
 
       const result = generateEntityFileTypes([userCode, postCode, commentCode]);
       
-      // Check that entity references are replaced with their ID types
-      expect(result).toContain("author: number"); // User entity ID type
-      expect(result).toContain("post: string"); // Post entity ID type
+      // Check that entity references are replaced with Pick types containing primary key
+      expect(result).toContain("author: Pick<User, \"id\">"); // User entity with Pick type
+      expect(result).toContain("post: Pick<Post, \"id\">"); // Post entity with Pick type
       expect(result).toContain("posts: any"); // Collection becomes any when entity ID types are not available
       expect(result).toContain("comments: any"); // Collection becomes any when entity ID types are not available
     });

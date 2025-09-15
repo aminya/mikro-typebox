@@ -186,8 +186,8 @@ describe("entity-validator", () => {
       });
 
       expect(result).toContain("export const Comment = Type.Object({");
-      expect(result).toContain("post: Type.String()"); // Post ID type
-      expect(result).toContain("author: Type.Number()"); // User ID type
+      expect(result).toContain("post: Type.Pick(Post, Type.Literal(\"id\"))"); // Post entity with Pick type
+      expect(result).toContain("author: Type.Pick(User, Type.Literal(\"id\"))"); // User entity with Pick type
     });
 
     it("should handle empty entities directory", async () => {
