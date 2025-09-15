@@ -13,10 +13,7 @@ export function generateEntityFileTypes(fileContents: string[]): string {
 	visitEntities(sourceFile, entityIdTypes);
 
 	// Second pass: process each file with the complete entity map
-	const generatedTypes = fileContents.map((code) => generateEntityTypes(code, entityIdTypes)).join("\n");
-	
-	// Wrap the generated types in a namespace schema
-	return `namespace schema {\n${generatedTypes}\n}`;
+	return fileContents.map((code) => generateEntityTypes(code, entityIdTypes)).join("\n");
 }
 
 /**
@@ -235,7 +232,7 @@ const transformer = (
 													]
 												);
 											}
-										 return typeArg;
+											return typeArg;
 										}
 										return typeArg;
 									});
@@ -371,3 +368,19 @@ const transformer = (
 		return ts.visitNode(sourceFile, visitor) as ts.SourceFile;
 	};
 };
+
+export function wrapInNamespace(output: string) {
+	const lastImportIndex = findLastImportIndex(output);
+	return `${output.slice(0, lastImportIndex)}\nexport namespace schema {\n${output.slice(lastImportIndex)}\n}`;
+}
+
+function findLastImportIndex(output: string) {
+	let lastImportIndex = 0;
+	const matches = output.matchAll(/import .*/g);
+	for (const match of matches) {
+		const [importString, _] = match;
+		lastImportIndex += match.index + importString.length;
+	}
+	return lastImportIndex;
+}
+

@@ -173,7 +173,7 @@ And then generate validation schemas (e.g., with TypeBox):
 ```typescript
 import { Type } from '@sinclair/typebox';
 
-namespace schema {
+export namespace schema {
   export const User = Type.Object({
     id: Type.Number(),
     name: Type.String(),

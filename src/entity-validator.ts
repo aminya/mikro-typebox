@@ -1,7 +1,7 @@
 import * as Codegen from "@sinclair/typebox-codegen";
 import { existsSync } from "fs";
 import { readdir, readFile, writeFile } from "fs/promises";
-import { generateEntityFileTypes } from "./entity-parse.js";
+import { generateEntityFileTypes, wrapInNamespace } from "./entity-parse.js";
 
 export const modelsToFunction = {
 	arktype: "ArkType",
@@ -60,7 +60,6 @@ export async function generateEntityValidator(opts: GenerateEntityValidatorOptio
 	// generate the entity file types
 	const typesCode = generateEntityFileTypes(entityContents);
 
-
 	let output: string;
 	if (opts.targetValidationLibrary === undefined || opts.targetValidationLibrary === "typebox") {
 		output = Codegen.TypeScriptToTypeBox.Generate(typesCode, {
@@ -81,6 +80,9 @@ export async function generateEntityValidator(opts: GenerateEntityValidatorOptio
 		throw new Error(`Invalid target validation library: ${opts.targetValidationLibrary}.\nValid options are: ${Object.keys(modelsToFunction).join(", ")}.`);
 	}
 
+	// wrap the schemas in the namespace schema
+	output = wrapInNamespace(output);
+	
 	// write the code to a file
 	if (opts.write) {
 		await writeFile(opts.outputFile ?? "./src/entity-validators.ts", output);
@@ -88,3 +90,4 @@ export async function generateEntityValidator(opts: GenerateEntityValidatorOptio
 
 	return output;
 }
+
