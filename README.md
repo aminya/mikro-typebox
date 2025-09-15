@@ -12,7 +12,7 @@ Generate validation schemas from Mikro-ORM entities. Supports TypeBox, Zod, Vali
 
 ## Installation
 
-```bash
+```shell
 npm install --save-dev mikro-typebox
 ```
 
@@ -20,7 +20,7 @@ npm install --save-dev mikro-typebox
 
 The package includes a command-line interface for easy usage:
 
-```bash
+```shell
 # Generate typebox schema from `./src/entities` to `./src/entity-validators.ts`
 npx mikro-typebox generate
 
