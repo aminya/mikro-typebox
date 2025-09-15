@@ -113,12 +113,7 @@ function createPartialEntityType(
 	entityName: string,
 	primaryKeyInfo: { fieldName: string; fieldType: ts.TypeNode },
 	allProperties: ts.PropertySignature[],
-	partial: boolean
-): ts.TypeAliasDeclaration | ts.TypeLiteralNode {
-	if (!partial) {
-		return createPrimaryKeyObjectType(primaryKeyInfo);
-	}
-
+): ts.TypeAliasDeclaration {
 	// Create the partial type with required ID and optional other properties
 	const partialProperties = allProperties.map(prop => {
 		if (ts.isPropertySignature(prop) && ts.isIdentifier(prop.name) && prop.name.text === primaryKeyInfo.fieldName) {
@@ -231,11 +226,9 @@ function transformTypeNode(
 	}
 
 	// Then try to replace entity types with primary key objects
-	if (partials) {
-		return replaceEntityTypeWithPrimaryKey(collectionTransformed, entityPrimaryKeys);
-	} else {
-		return replaceEntityTypeWithInlinePrimaryKey(collectionTransformed, entityPrimaryKeys);
-	}
+	return partials ?
+		replaceEntityTypeWithPrimaryKey(collectionTransformed, entityPrimaryKeys) :
+		replaceEntityTypeWithInlinePrimaryKey(collectionTransformed, entityPrimaryKeys);
 }
 
 /**
@@ -337,10 +330,11 @@ const transformer = (
 					ts.factory.createTypeLiteralNode(propertySignatures)
 				);
 
-				// Create the partial type if this is an entity with a primary key
+
+				// Create the partial type if this is an entity with a primary key and partials is enabled
 				const primaryKeyInfo = entityPrimaryKeys.get(className);
-				if (primaryKeyInfo) {
-					const partialType = createPartialEntityType(className, primaryKeyInfo, propertySignatures, partials);
+				if (primaryKeyInfo && partials) {
+					const partialType = createPartialEntityType(className, primaryKeyInfo, propertySignatures);
 					return [mainType, partialType];
 				}
 
