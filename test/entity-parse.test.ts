@@ -219,7 +219,7 @@ describe("entity-parse", () => {
         }
       `;
 
-      const result = generateEntityFileTypes([userCode, postCode, commentCode], true);
+      const result = generateEntityFileTypes([userCode, postCode, commentCode], { usePartialTypes: true });
       
       // Check that the result is wrapped in namespace schema
       expect(result).toContain("namespace schema {");
@@ -298,7 +298,7 @@ describe("entity-parse", () => {
         }
       `;
 
-      const result = generateEntityFileTypes([userCode, postCode], true);
+      const result = generateEntityFileTypes([userCode, postCode], { usePartialTypes: true });
       
       // Check that the result is wrapped in namespace schema
       expect(result).toContain("namespace schema {");

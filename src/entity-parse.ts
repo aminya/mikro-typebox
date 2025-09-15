@@ -1,9 +1,17 @@
 import * as ts from "typescript";
 
+export interface EntityParseOptions {
+	/**
+	 * When true, creates partial types (PartialEntityName) with required ID and optional other properties.
+	 * When false, replaces entity references with inline primary key objects to avoid circular references.
+	 */
+	usePartialTypes?: boolean;
+}
+
 /**
  * Process multiple entity files and generate types with proper entity ID replacement
  */
-export function generateEntityFileTypes(fileContents: string[], partials: boolean = false): string {
+export function generateEntityFileTypes(fileContents: string[], options: EntityParseOptions = {}): string {
 	// First pass: collect all entities and their primary key info from all files
 	const entityPrimaryKeys = new Map<string, { fieldName: string; fieldType: ts.TypeNode }>();
 	const allCode = fileContents.join("\n");
@@ -13,7 +21,7 @@ export function generateEntityFileTypes(fileContents: string[], partials: boolea
 	visitEntities(sourceFile, entityPrimaryKeys);
 
 	// Second pass: process each file with the complete entity map
-	const generatedTypes = fileContents.map((code) => generateEntityTypes(code, partials, entityPrimaryKeys)).join("\n");
+	const generatedTypes = fileContents.map((code) => generateEntityTypes(code, entityPrimaryKeys, options)).join("\n");
 
 	// Wrap the generated types in a namespace schema
 	return `export namespace schema {\n${generatedTypes}\n}`;
@@ -22,7 +30,11 @@ export function generateEntityFileTypes(fileContents: string[], partials: boolea
 /**
  * Cleanup the code to remove the imports and the calls to the imported symbols
  */
-export function generateEntityTypes(code: string, partials: boolean = false, entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }> = new Map()): string {
+export function generateEntityTypes(
+	code: string,
+	entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }> = new Map(),
+	options: EntityParseOptions = {}
+): string {
 	const sourceFile = ts.createSourceFile("temp.ts", code, ts.ScriptTarget.Latest, true);
 
 	// Collect imports and their symbols
@@ -39,7 +51,7 @@ export function generateEntityTypes(code: string, partials: boolean = false, ent
 
 	// Apply the transformer
 	const result = ts.transform(sourceFile, [
-		(ctx) => transformer(ctx, importNodes, callExpressionsToRemove, entityPrimaryKeys, partials)
+		(ctx) => transformer(ctx, importNodes, callExpressionsToRemove, entityPrimaryKeys, options)
 	]);
 	const transformedSourceFile = result.transformed[0];
 	if (!transformedSourceFile) {
@@ -112,7 +124,7 @@ function visitCalls(
 function createPartialEntityType(
 	entityName: string,
 	primaryKeyInfo: { fieldName: string; fieldType: ts.TypeNode },
-	allProperties: ts.PropertySignature[],
+	allProperties: ts.PropertySignature[]
 ): ts.TypeAliasDeclaration {
 	// Create the partial type with required ID and optional other properties
 	const partialProperties = allProperties.map(prop => {
@@ -153,7 +165,24 @@ function createPrimaryKeyObjectType(primaryKeyInfo: { fieldName: string; fieldTy
 }
 
 /**
- * Replace entity type references with partial entity types
+ * Replace entity type references with partial entity types (when usePartialTypes is true)
+ */
+function replaceEntityTypeWithPartialType(
+	type: ts.TypeNode,
+	entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>
+): ts.TypeNode {
+	if (ts.isTypeReferenceNode(type) && ts.isIdentifier(type.typeName)) {
+		const entityName = type.typeName.text;
+		const primaryKeyInfo = entityPrimaryKeys.get(entityName);
+		if (primaryKeyInfo) {
+			return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(`schema.Partial${entityName}`), undefined);
+		}
+	}
+	return type;
+}
+
+/**
+ * Replace entity type references with object types containing primary key (when usePartialTypes is false)
  */
 function replaceEntityTypeWithPrimaryKey(
 	type: ts.TypeNode,
@@ -163,7 +192,7 @@ function replaceEntityTypeWithPrimaryKey(
 		const entityName = type.typeName.text;
 		const primaryKeyInfo = entityPrimaryKeys.get(entityName);
 		if (primaryKeyInfo) {
-			return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(`schema.Partial${entityName}`), undefined);
+			return createPrimaryKeyObjectType(primaryKeyInfo);
 		}
 	}
 	return type;
@@ -187,7 +216,7 @@ function replaceEntityTypeWithInlinePrimaryKey(
 }
 
 /**
- * Transform Collection<T> to Array<T> and replace entity types in generic arguments with inline primary key objects
+ * Transform Collection<T> to Array<T> and replace entity types in generic arguments with inline primary key objects for deep references
  */
 function transformCollectionType(
 	type: ts.TypeNode,
@@ -217,7 +246,7 @@ function transformCollectionType(
 function transformTypeNode(
 	type: ts.TypeNode,
 	entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>,
-	partials: boolean
+	options: EntityParseOptions
 ): ts.TypeNode {
 	// First try to replace Collection<T> with Array<T>
 	const collectionTransformed = transformCollectionType(type, entityPrimaryKeys);
@@ -225,10 +254,12 @@ function transformTypeNode(
 		return collectionTransformed;
 	}
 
-	// Then try to replace entity types with primary key objects
-	return partials ?
-		replaceEntityTypeWithPrimaryKey(collectionTransformed, entityPrimaryKeys) :
-		replaceEntityTypeWithInlinePrimaryKey(collectionTransformed, entityPrimaryKeys);
+	// Then try to replace entity types based on the option
+	if (options.usePartialTypes) {
+		return replaceEntityTypeWithPartialType(collectionTransformed, entityPrimaryKeys);
+	} else {
+		return replaceEntityTypeWithPrimaryKey(collectionTransformed, entityPrimaryKeys);
+	}
 }
 
 /**
@@ -281,13 +312,14 @@ function visitEntities(node: ts.Node, entityPrimaryKeys: Map<string, { fieldName
  * - remove expression statements (like method calls and assignments)
  * - remove definite assignment assertions (!:)
  * - replace Collection<T> with Array<T>
+ * - create partial types when usePartialTypes is true
  */
 const transformer = (
 	context: ts.TransformationContext,
 	importNodes: Set<ts.Node>,
 	callExpressionsToRemove: Set<ts.Node>,
 	entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>,
-	partials: boolean
+	options: EntityParseOptions
 ) => {
 	return (sourceFile: ts.SourceFile) => {
 		const visitor = (node: ts.Node): ts.Node | ts.Node[] | undefined => {
@@ -314,7 +346,7 @@ const transformer = (
 							let type = member.type || ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword);
 
 							// Transform the type by replacing entities and collections
-							type = transformTypeNode(type, entityPrimaryKeys, partials);
+							type = transformTypeNode(type, entityPrimaryKeys, options);
 
 							return ts.factory.createPropertySignature(undefined, propertyName, member.questionToken, type);
 						}
@@ -330,12 +362,13 @@ const transformer = (
 					ts.factory.createTypeLiteralNode(propertySignatures)
 				);
 
-
-				// Create the partial type if this is an entity with a primary key and partials is enabled
-				const primaryKeyInfo = entityPrimaryKeys.get(className);
-				if (primaryKeyInfo && partials) {
-					const partialType = createPartialEntityType(className, primaryKeyInfo, propertySignatures);
-					return [mainType, partialType];
+				// Create the partial type if this is an entity with a primary key and usePartialTypes is true
+				if (options.usePartialTypes) {
+					const primaryKeyInfo = entityPrimaryKeys.get(className);
+					if (primaryKeyInfo) {
+						const partialType = createPartialEntityType(className, primaryKeyInfo, propertySignatures);
+						return [mainType, partialType];
+					}
 				}
 
 				return mainType;
@@ -364,12 +397,12 @@ const transformer = (
 
 			// Transform type reference nodes (Collection<T> and entity types)
 			if (ts.isTypeReferenceNode(node)) {
-				return transformTypeNode(node, entityPrimaryKeys, partials);
+				return transformTypeNode(node, entityPrimaryKeys, options);
 			}
 
 			// Transform property signatures with entity types
 			if (ts.isPropertySignature(node) && node.type) {
-				const transformedType = transformTypeNode(node.type, entityPrimaryKeys, partials);
+				const transformedType = transformTypeNode(node.type, entityPrimaryKeys, options);
 				if (transformedType !== node.type) {
 					return ts.factory.createPropertySignature(node.modifiers, node.name, node.questionToken, transformedType);
 				}

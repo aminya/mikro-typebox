@@ -239,7 +239,7 @@ describe("Integration Tests", () => {
         await Bun.file(`${testEntitiesDir}/Comment.ts`).text()
       ];
 
-      const result = generateEntityFileTypes(entityFiles, true);
+      const result = generateEntityFileTypes(entityFiles, { usePartialTypes: true });
 
       // Check that the result is wrapped in namespace schema
       expect(result).toContain("namespace schema {");

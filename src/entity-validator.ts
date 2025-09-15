@@ -2,6 +2,7 @@ import * as Codegen from "@sinclair/typebox-codegen";
 import { existsSync } from "fs";
 import { readdir, readFile, writeFile } from "fs/promises";
 import { generateEntityFileTypes } from "./entity-parse.js";
+import path from "path";
 
 export const modelsToFunction = {
 	arktype: "ArkType",
@@ -69,7 +70,7 @@ export async function generateEntityValidator(opts: GenerateEntityValidatorOptio
 	const isTypeBox = opts.targetValidationLibrary === undefined || opts.targetValidationLibrary === "typebox";
 
 	// generate the entity file types
-	const typesCode = generateEntityFileTypes(entityContents, opts.partials ?? isTypeBox);
+	const typesCode = generateEntityFileTypes(entityContents, { usePartialTypes: opts.partials ?? isTypeBox });
 
 	let output: string;
 	if (isTypeBox || opts.targetValidationLibrary === undefined) {
@@ -84,13 +85,13 @@ export async function generateEntityValidator(opts: GenerateEntityValidatorOptio
 
 		// get the model name
 		const modelName = modelsToFunction[opts.targetValidationLibrary];
-		
+
 		// generate the code
 		output = Codegen[`ModelTo${modelName}`].Generate(model);
 	} else {
 		throw new Error(`Invalid target validation library: ${opts.targetValidationLibrary}.\nValid options are: ${Object.keys(modelsToFunction).join(", ")}.`);
 	}
-	
+
 	// write the code to a file
 	if (opts.write) {
 		await writeFile(opts.outputFile ?? "./src/entity-validators.ts", output);
