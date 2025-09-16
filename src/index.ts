@@ -1,1 +1,1 @@
-export * from "./entity-validator.js";
+export * from "./generate.js";

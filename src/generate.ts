@@ -1,8 +1,9 @@
 import * as Codegen from "@sinclair/typebox-codegen";
 import { existsSync } from "fs";
 import { readdir, readFile, writeFile } from "fs/promises";
-import { generateEntityFileTypes } from "./entity-parse.js";
+import { generateEntityFileTypes } from "./prepare.js";
 import path from "path";
+import { Distribution } from "@biomejs/js-api";
 
 export const modelsToFunction = {
 	arktype: "ArkType",
@@ -53,6 +54,30 @@ export type GenerateEntityValidatorOptions = {
  * @returns The validator code.
  */
 export async function generateEntityValidator(opts: GenerateEntityValidatorOptions): Promise<string> {
+	// read the entity files
+	const entityContents = await readEntities(opts);
+
+	// generate the entity types
+	const typesCode = generateEntityFileTypes(entityContents, {
+		usePartialTypes: opts.partials ??
+			(opts.targetValidationLibrary === undefined || opts.targetValidationLibrary === "typebox")
+	});
+
+	// generate the validator via the types
+	const output: string = generateValidator(opts, typesCode);
+
+	// format the code
+	const formattedCode = await formatCode(output);
+
+	// write the code to a file
+	if (opts.write) {
+		await writeFile(opts.outputFile ?? "./src/entity-validators.ts", formattedCode);
+	}
+
+	return output;
+}
+
+async function readEntities(opts: GenerateEntityValidatorOptions) {
 	const entitiesDir = opts.entitiesDir ?? "./src/entities";
 	if (!existsSync(entitiesDir)) {
 		throw new Error(`Entities directory does not exist: ${entitiesDir}. Set the entitiesDir option to the correct directory.`);
@@ -65,16 +90,13 @@ export async function generateEntityValidator(opts: GenerateEntityValidatorOptio
 	const entityFiles = entities.filter((entity) => extensions.has(path.extname(entity)));
 
 	// read the entity files
-	const entityContents = await Promise.all(entityFiles.map((entity) => readFile(`${entitiesDir}/${entity}`, "utf-8")));
+	return await Promise.all(entityFiles.map((entity) => readFile(`${entitiesDir}/${entity}`, "utf-8")));
+}
 
-	const isTypeBox = opts.targetValidationLibrary === undefined || opts.targetValidationLibrary === "typebox";
-
-	// generate the entity file types
-	const typesCode = generateEntityFileTypes(entityContents, { usePartialTypes: opts.partials ?? isTypeBox });
-
-	let output: string;
-	if (isTypeBox || opts.targetValidationLibrary === undefined) {
-		output = Codegen.TypeScriptToTypeBox.Generate(typesCode, {
+function generateValidator(opts: GenerateEntityValidatorOptions, typesCode: string) {
+	if (opts.targetValidationLibrary === undefined || opts.targetValidationLibrary === "typebox") {
+		// generate the typebox code
+		return Codegen.TypeScriptToTypeBox.Generate(typesCode, {
 			useExportEverything: true,
 			useTypeBoxImport: true,
 			useIdentifiers: true
@@ -87,16 +109,21 @@ export async function generateEntityValidator(opts: GenerateEntityValidatorOptio
 		const modelName = modelsToFunction[opts.targetValidationLibrary];
 
 		// generate the code
-		output = Codegen[`ModelTo${modelName}`].Generate(model);
+		return Codegen[`ModelTo${modelName}`].Generate(model);
 	} else {
 		throw new Error(`Invalid target validation library: ${opts.targetValidationLibrary}.\nValid options are: ${Object.keys(modelsToFunction).join(", ")}.`);
 	}
-
-	// write the code to a file
-	if (opts.write) {
-		await writeFile(opts.outputFile ?? "./src/entity-validators.ts", output);
-	}
-
-	return output;
 }
 
+
+async function formatCode(code: string) {
+	try {
+		const prettier = await import("prettier");
+		return prettier.format(code, {
+			parser: "typescript"
+		});
+	} catch (error) {
+		console.error(error);
+		return code;
+	}
+}
