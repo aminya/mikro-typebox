@@ -56,8 +56,7 @@ describe("entity-parse", () => {
       const result = generateEntityTypes(code);
 
       expect(result).toContain("export type User = {");
-      expect(result).toContain("posts: Array<Post>");
-      expect(result).not.toContain("Collection<Post>");
+      expect(result).toContain("posts: Collection<Post> | Array<Post>");
     });
 
     it("should handle entities with ManyToOne relationships", () => {
@@ -234,8 +233,8 @@ describe("entity-parse", () => {
       // Check that entity references are replaced with partial types or broken by circular reference detection
       expect(result).toContain("author: "); // User entity with partial type or inlined object
       expect(result).toContain("post: "); // Post entity with partial type or inlined object
-      expect(result).toContain("posts: Array<schema.PartialPost>"); // Collection with partial entity type
-      expect(result).toContain("comments: Array<schema.PartialComment>"); // Collection with partial entity type
+      expect(result).toContain("posts: Collection<schema.PartialPost> | Array<schema.PartialPost>"); // Collection with partial entity type
+      expect(result).toContain("comments: Collection<schema.PartialComment> | Array<schema.PartialComment>"); // Collection with partial entity type
 
       // Check that partial types are generated
       expect(result).toContain("export type PartialUser = {");
@@ -270,7 +269,8 @@ describe("entity-parse", () => {
 
     it("should handle empty array", () => {
       const result = generateEntityFileTypes([]);
-      expect(result).toBe("export namespace schema {\n\n}");
+      expect(result).toContain("export namespace schema {");
+      expect(result).toContain("export type Collection<T> = { [k: number]: T; };");
     });
 
     it("should generate partial types when partials: true", () => {

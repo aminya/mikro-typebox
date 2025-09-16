@@ -218,8 +218,8 @@ describe("Detailed Circular Reference Detection", () => {
     expect(result).toContain("export type PartialComment = {");
 
     // Check that collections are properly handled
-    expect(result).toContain("posts: Array<");
-    expect(result).toContain("comments: Array<");
+    expect(result).toContain("posts: Collection<");
+    expect(result).toContain("comments: Collection<");
 
     // The circular reference should be broken somewhere in the chain
     // User -> Post -> Comment -> User creates a cycle

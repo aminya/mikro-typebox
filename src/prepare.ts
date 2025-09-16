@@ -262,8 +262,12 @@ export function generateEntityFileTypes(
     .map((code) => generateEntityTypes(code, entityPrimaryKeys, options, circularReferences))
     .join("\n");
 
-  // Wrap the generated types in a namespace schema
-  return `export namespace schema {\n${generatedTypes}\n}`;
+  // Wrap the generated types in a namespace schema with Collection type definition
+  return `export namespace schema {
+export type Collection<T> = { [k: number]: T; };
+
+${generatedTypes}
+}`;
 }
 
 /**
@@ -509,15 +513,27 @@ function transformCollectionType(
           replaceEntityTypeWithPartialType(typeArg, entityPrimaryKeys, circularReferences, currentEntity) : 
           replaceEntityTypeWithPrimaryKey(typeArg, entityPrimaryKeys);
       });
-      return ts.factory.createTypeReferenceNode(
-        ts.factory.createIdentifier("Array"),
-        transformedTypeArgs,
-      );
+      return ts.factory.createUnionTypeNode([
+        ts.factory.createTypeReferenceNode(
+          ts.factory.createIdentifier("Collection"),
+          transformedTypeArgs,
+        ),
+        ts.factory.createTypeReferenceNode(
+          ts.factory.createIdentifier("Array"),
+          transformedTypeArgs,
+        ),
+      ]);
     } else {
-      return ts.factory.createTypeReferenceNode(
-        ts.factory.createIdentifier("Array"),
-        type.typeArguments,
-      );
+      return ts.factory.createUnionTypeNode([
+        ts.factory.createTypeReferenceNode(
+          ts.factory.createIdentifier("Collection"),
+          type.typeArguments,
+        ),
+        ts.factory.createTypeReferenceNode(
+          ts.factory.createIdentifier("Array"),
+          type.typeArguments,
+        ),
+      ]);
     }
   }
   return type;

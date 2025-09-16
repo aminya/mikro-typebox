@@ -31,11 +31,17 @@ export function inferTypeFromInitializer(
         ? replaceEntityTypeWithPartialType(genericType, entityPrimaryKeys, circularReferences, currentEntity)
         : replaceEntityTypeWithPrimaryKey(genericType, entityPrimaryKeys);
 
-      // Return Array<T> instead of Collection<T>
-      return ts.factory.createTypeReferenceNode(
-        ts.factory.createIdentifier("Array"),
-        [transformedType]
-      );
+      // Return Collection<T> | Array<T> for compatibility
+      return ts.factory.createUnionTypeNode([
+        ts.factory.createTypeReferenceNode(
+          ts.factory.createIdentifier("Collection"),
+          [transformedType]
+        ),
+        ts.factory.createTypeReferenceNode(
+          ts.factory.createIdentifier("Array"),
+          [transformedType]
+        ),
+      ]);
     }
   }
 

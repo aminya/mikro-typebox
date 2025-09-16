@@ -70,7 +70,7 @@ describe("entity-validator", () => {
       });
 
       expect(result).toContain(
-        'import { Type, Static } from "@sinclair/typebox"',
+        'import { Type, Static, TSchema } from "@sinclair/typebox"',
       );
       expect(result).toContain("export namespace schema {");
       expect(result).toContain("export const User = Type.Object(");
@@ -111,7 +111,7 @@ describe("entity-validator", () => {
 
       const content = await Bun.file(testOutputFile).text();
       expect(content).toContain(
-        'import { Type, Static } from "@sinclair/typebox"',
+        'import { Type, Static, TSchema } from "@sinclair/typebox"',
       );
       expect(content).toContain("export namespace schema {");
     });

@@ -61,7 +61,7 @@ describe("CLI", () => {
 
       const content = await Bun.file(testOutputFile).text();
       expect(content).toContain(
-        'import { Type, Static } from "@sinclair/typebox"',
+        'import { Type, Static, TSchema } from "@sinclair/typebox"',
       );
       expect(content).toContain("export namespace schema {");
       expect(content).toContain("export const User = Type.Object(");

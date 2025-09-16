@@ -56,8 +56,8 @@ for (const folder of ["./test/test-entities/", "./test/test-entities-2/"]) {
             expect(result).toContain('}');
 
             // Collections should also be inlined
-            expect(result).toContain('posts: Array<{');
-            expect(result).toContain('comments: Array<{');
+            expect(result).toContain('posts: Collection<{');
+            expect(result).toContain('comments: Collection<{');
         });
 
         it("should work with CLI command for test-entities", async () => {
