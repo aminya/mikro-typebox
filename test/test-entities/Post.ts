@@ -1,4 +1,11 @@
-import { Entity, PrimaryKey, Property, ManyToOne, Collection, OneToMany } from "@mikro-orm/core";
+import {
+  Entity,
+  PrimaryKey,
+  Property,
+  ManyToOne,
+  Collection,
+  OneToMany,
+} from "@mikro-orm/core";
 import { User } from "./User.js";
 import { Comment } from "./Comment.js";
 
@@ -19,7 +26,7 @@ export class Post {
   @ManyToOne(() => User)
   author!: User;
 
-  @OneToMany(() => Comment, comment => comment.post)
+  @OneToMany(() => Comment, (comment) => comment.post)
   comments = new Collection<Comment>(this);
 
   constructor({ title, content, publishedAt, author, comments }: Post) {

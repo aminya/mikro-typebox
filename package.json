@@ -24,7 +24,8 @@
     "build": "tsc",
     "test": "bun test",
     "test:watch": "bun test --watch",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "format": "prettier --write ."
   },
   "devDependencies": {
     "@mikro-orm/core": "^6.5.3",

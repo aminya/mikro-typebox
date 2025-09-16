@@ -71,7 +71,6 @@ Generates validation schemas from Mikro-ORM entities.
 - `options.targetValidationLibrary` (optional): Target validation library (default: `"typebox"`)
 - `options.partials` (optional): Whether to generate partial types instead of inline primary key references (default: `true` for `typebox`)
 
-
 ### `generateEntityTypes(code, entityIdTypes)`
 
 Converts Mikro-ORM entity code to TypeScript types.
@@ -92,31 +91,30 @@ Processes multiple entity files and generates types with proper entity ID replac
 ## Usage Examples
 
 ```typescript
-import { generateEntityValidator } from 'mikro-typebox';
+import { generateEntityValidator } from "mikro-typebox";
 
 // Generate for TypeBox
 await generateEntityValidator({
-  entitiesDir: './src/entities',
-  outputFile: './src/validators.ts',
+  entitiesDir: "./src/entities",
+  outputFile: "./src/validators.ts",
   write: true,
-  partials: true
+  partials: true,
 });
 
 // Generate for Zod
 const zodCode = await generateEntityValidator({
-  entitiesDir: './src/entities',
-  targetValidationLibrary: 'zod',
-  outputFile: './src/zod-validators.ts',
+  entitiesDir: "./src/entities",
+  targetValidationLibrary: "zod",
+  outputFile: "./src/zod-validators.ts",
   write: true,
 });
 
-
 // Generate for Valibot
 const valibotCode = await generateEntityValidator({
-  entitiesDir: './src/entities',
-  targetValidationLibrary: 'valibot',
-  outputFile: './src/valibot-validators.ts',
-  write: true
+  entitiesDir: "./src/entities",
+  targetValidationLibrary: "valibot",
+  outputFile: "./src/valibot-validators.ts",
+  write: true,
 });
 ```
 
@@ -126,8 +124,14 @@ Given a Mikro-ORM entity file like this:
 
 ```typescript
 // src/entities/User.ts
-import { Entity, PrimaryKey, Property, Collection, OneToMany } from '@mikro-orm/core';
-import { Book } from './Book';
+import {
+  Entity,
+  PrimaryKey,
+  Property,
+  Collection,
+  OneToMany,
+} from "@mikro-orm/core";
+import { Book } from "./Book";
 
 @Entity()
 export class User {
@@ -140,7 +144,7 @@ export class User {
   @Property()
   email!: string;
 
-  @OneToMany(() => Book, book => book.author)
+  @OneToMany(() => Book, (book) => book.author)
   books = new Collection<Book>(this);
 
   constructor({ name, email }: User) {
@@ -150,8 +154,8 @@ export class User {
 }
 
 // src/entities/Book.ts
-import { Entity, PrimaryKey, Property, ManyToOne } from '@mikro-orm/core';
-import { User } from './User';
+import { Entity, PrimaryKey, Property, ManyToOne } from "@mikro-orm/core";
+import { User } from "./User";
 
 @Entity()
 export class Book {
@@ -174,7 +178,7 @@ export class Book {
 And then generate validation schemas (e.g., with TypeBox):
 
 ```typescript
-import { Type, Static } from '@sinclair/typebox'
+import { Type, Static } from "@sinclair/typebox"'
 
 export namespace schema {
     export type Book = Static<typeof Book>
@@ -213,28 +217,28 @@ export namespace schema {
 or for Zod
 
 ```typescript
-import { z } from 'zod'
+import { z } from "zod";
 
-export type schema_Book = z.infer<typeof schema_Book>
+export type schema_Book = z.infer<typeof schema_Book>;
 export const schema_Book = z.object({
-    id: z.number(),
-    title: z.string(),
-    author: z.object({})
-})
+  id: z.number(),
+  title: z.string(),
+  author: z.object({}),
+});
 
-export type schema_User = z.infer<typeof schema_User>
+export type schema_User = z.infer<typeof schema_User>;
 export const schema_User = z.object({
-    id: z.number(),
-    name: z.string(),
-    email: z.string(),
-    books: z.any()
-})
+  id: z.number(),
+  name: z.string(),
+  email: z.string(),
+  books: z.any(),
+});
 ```
 
 ### Programmatic Usage
 
 ```typescript
-import { generateEntityTypes, generateEntityFileTypes } from 'mikro-typebox';
+import { generateEntityTypes, generateEntityFileTypes } from "mikro-typebox";
 
 // Process a single entity file
 const entityCode = `
@@ -271,4 +275,3 @@ const allTypes = generateEntityFileTypes(fileContents);
 ## License
 
 Apache-2.0, Copyright (c) 2025 Amin Yara
-

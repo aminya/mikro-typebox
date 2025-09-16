@@ -1,4 +1,10 @@
-import { Entity, PrimaryKey, Property, Collection, OneToMany } from "@mikro-orm/core";
+import {
+  Entity,
+  PrimaryKey,
+  Property,
+  Collection,
+  OneToMany,
+} from "@mikro-orm/core";
 import { Post } from "./Post.js";
 
 @Entity()
@@ -15,7 +21,7 @@ export class User {
   @Property({ nullable: true })
   age?: number | undefined;
 
-  @OneToMany(() => Post, post => post.author)
+  @OneToMany(() => Post, (post) => post.author)
   posts = new Collection<Post>(this);
 
   constructor({ name, email, age }: User) {

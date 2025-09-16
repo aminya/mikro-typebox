@@ -10,9 +10,11 @@ describe("CLI", () => {
   beforeEach(async () => {
     // Create test entities directory
     await mkdir(testEntitiesDir, { recursive: true });
-    
+
     // Create sample entity file
-    await writeFile(`${testEntitiesDir}/User.ts`, `
+    await writeFile(
+      `${testEntitiesDir}/User.ts`,
+      `
       import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
 
       @Entity()
@@ -26,7 +28,8 @@ describe("CLI", () => {
         @Property({ nullable: true })
         email?: string;
       }
-    `);
+    `,
+    );
   });
 
   afterEach(async () => {
@@ -49,7 +52,7 @@ describe("CLI", () => {
         "--entities",
         testEntitiesDir,
         "--output",
-        testOutputFile
+        testOutputFile,
       ]);
 
       const exitCode = await proc.exited;
@@ -57,9 +60,11 @@ describe("CLI", () => {
       expect(existsSync(testOutputFile)).toBe(true);
 
       const content = await Bun.file(testOutputFile).text();
-      expect(content).toContain("import { Type, Static } from '@sinclair/typebox'");
+      expect(content).toContain(
+        'import { Type, Static } from "@sinclair/typebox"',
+      );
       expect(content).toContain("export namespace schema {");
-      expect(content).toContain("export const User = Type.Object({");
+      expect(content).toContain("export const User = Type.Object(");
     });
 
     it("should generate validators with custom target library", async () => {
@@ -73,7 +78,7 @@ describe("CLI", () => {
         "--output",
         testOutputFile,
         "--target",
-        "zod"
+        "zod",
       ]);
 
       const exitCode = await proc.exited;
@@ -81,7 +86,7 @@ describe("CLI", () => {
       expect(existsSync(testOutputFile)).toBe(true);
 
       const content = await Bun.file(testOutputFile).text();
-      expect(content).toContain("import { z } from 'zod'");
+      expect(content).toContain('import { z } from "zod"');
       expect(content).toContain("export const schema_User = z.object({");
     });
 
@@ -93,7 +98,7 @@ describe("CLI", () => {
         "generate",
         "--entities",
         testEntitiesDir,
-        "--no-write"
+        "--no-write",
       ]);
 
       const exitCode = await proc.exited;
@@ -113,7 +118,7 @@ describe("CLI", () => {
         "--entities",
         "./non-existent-directory",
         "--output",
-        testOutputFile
+        testOutputFile,
       ]);
 
       const exitCode = await proc.exited;
@@ -134,7 +139,7 @@ describe("CLI", () => {
         "--output",
         testOutputFile,
         "--target",
-        "invalid-library"
+        "invalid-library",
       ]);
 
       const exitCode = await proc.exited;
@@ -145,31 +150,22 @@ describe("CLI", () => {
     });
 
     it("should show help when --help is used", async () => {
-      const proc = spawn([
-        "bun",
-        "run",
-        "src/cli.ts",
-        "generate",
-        "--help"
-      ]);
+      const proc = spawn(["bun", "run", "src/cli.ts", "generate", "--help"]);
 
       const exitCode = await proc.exited;
       expect(exitCode).toBe(0);
 
       const stdout = await new Response(proc.stdout).text();
-      expect(stdout).toContain("Generate validation schemas from Mikro-ORM entities");
+      expect(stdout).toContain(
+        "Generate validation schemas from Mikro-ORM entities",
+      );
       expect(stdout).toContain("--entities <path>");
       expect(stdout).toContain("--output <file>");
       expect(stdout).toContain("--target <library>");
     });
 
     it("should show version when --version is used", async () => {
-      const proc = spawn([
-        "bun",
-        "run",
-        "src/cli.ts",
-        "--version"
-      ]);
+      const proc = spawn(["bun", "run", "src/cli.ts", "--version"]);
 
       const exitCode = await proc.exited;
       expect(exitCode).toBe(0);
@@ -179,12 +175,7 @@ describe("CLI", () => {
     });
 
     it("should handle unknown commands", async () => {
-      const proc = spawn([
-        "bun",
-        "run",
-        "src/cli.ts",
-        "unknown-command"
-      ]);
+      const proc = spawn(["bun", "run", "src/cli.ts", "unknown-command"]);
 
       const exitCode = await proc.exited;
       expect(exitCode).toBe(1);
@@ -204,7 +195,7 @@ describe("CLI", () => {
         "-o",
         testOutputFile,
         "-t",
-        "valibot"
+        "valibot",
       ]);
 
       const exitCode = await proc.exited;
@@ -212,7 +203,7 @@ describe("CLI", () => {
       expect(existsSync(testOutputFile)).toBe(true);
 
       const content = await Bun.file(testOutputFile).text();
-      expect(content).toContain("import * as v from 'valibot'");
+      expect(content).toContain('import * as v from "valibot"');
       expect(content).toContain("export const schema_User = v.object({");
     });
   });
@@ -221,12 +212,7 @@ describe("CLI", () => {
     it("should use default values when options are not provided", async () => {
       // This test would require creating ./src/entities directory
       // For now, we'll test that it fails with appropriate error
-      const proc = spawn([
-        "bun",
-        "run",
-        "src/cli.ts",
-        "generate"
-      ]);
+      const proc = spawn(["bun", "run", "src/cli.ts", "generate"]);
 
       const exitCode = await proc.exited;
       expect(exitCode).toBe(1);

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { generateEntityValidator } from "../src/entity-validator.js";
-import { generateEntityFileTypes } from "../src/entity-parse.js";
+import { generateEntityValidator } from "../src/generate.js";
+import { generateEntityFileTypes } from "../src/prepare.js";
 import { mkdir, writeFile, rm } from "fs/promises";
 import { existsSync } from "fs";
 
@@ -11,9 +11,11 @@ describe("Integration Tests", () => {
   beforeEach(async () => {
     // Create test entities directory
     await mkdir(testEntitiesDir, { recursive: true });
-    
+
     // Create a complete set of related entities
-    await writeFile(`${testEntitiesDir}/User.ts`, `
+    await writeFile(
+      `${testEntitiesDir}/User.ts`,
+      `
       import { Entity, PrimaryKey, Property, Collection, OneToMany } from "@mikro-orm/core";
       import { Post } from "./Post.js";
 
@@ -34,9 +36,12 @@ describe("Integration Tests", () => {
         @OneToMany(() => Post, post => post.author)
         posts = new Collection<Post>(this);
       }
-    `);
+    `,
+    );
 
-    await writeFile(`${testEntitiesDir}/Post.ts`, `
+    await writeFile(
+      `${testEntitiesDir}/Post.ts`,
+      `
       import { Entity, PrimaryKey, Property, ManyToOne, Collection, OneToMany } from "@mikro-orm/core";
       import { User } from "./User.js";
       import { Comment } from "./Comment.js";
@@ -61,9 +66,12 @@ describe("Integration Tests", () => {
         @OneToMany(() => Comment, comment => comment.post)
         comments = new Collection<Comment>(this);
       }
-    `);
+    `,
+    );
 
-    await writeFile(`${testEntitiesDir}/Comment.ts`, `
+    await writeFile(
+      `${testEntitiesDir}/Comment.ts`,
+      `
       import { Entity, PrimaryKey, Property, ManyToOne } from "@mikro-orm/core";
       import { Post } from "./Post.js";
       import { User } from "./User.js";
@@ -85,7 +93,8 @@ describe("Integration Tests", () => {
         @ManyToOne(() => User)
         author!: User;
       }
-    `);
+    `,
+    );
   });
 
   afterEach(async () => {
@@ -103,15 +112,17 @@ describe("Integration Tests", () => {
       const result = await generateEntityValidator({
         entitiesDir: testEntitiesDir,
         targetValidationLibrary: "typebox",
-        write: false
+        write: false,
       });
 
       // Check TypeBox imports
-      expect(result).toContain("import { Type, Static } from '@sinclair/typebox'");
+      expect(result).toContain(
+        'import { Type, Static } from "@sinclair/typebox"',
+      );
       expect(result).toContain("export namespace schema {");
 
       // Check User entity
-      expect(result).toContain("export const User = Type.Object({");
+      expect(result).toContain("export const User = Type.Object(");
       expect(result).toContain("id: Type.Number()");
       expect(result).toContain("name: Type.String()");
       expect(result).toContain("email: Type.String()");
@@ -119,7 +130,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("posts: Type.Any()"); // Collection becomes any when entity ID types are not available
 
       // Check Post entity
-      expect(result).toContain("export const Post = Type.Object({");
+      expect(result).toContain("export const Post = Type.Object(");
       expect(result).toContain("title: Type.String()");
       expect(result).toContain("content: Type.String()");
       expect(result).toContain("publishedAt: Type.Date()");
@@ -127,16 +138,16 @@ describe("Integration Tests", () => {
       expect(result).toContain("comments: Type.Any()"); // Collection becomes any when entity ID types are not available
 
       // Check Comment entity
-      expect(result).toContain("export const Comment = Type.Object({");
+      expect(result).toContain("export const Comment = Type.Object(");
       expect(result).toContain("content: Type.String()");
       expect(result).toContain("createdAt: Type.Date()");
       expect(result).toContain("post: schema.PartialPost"); // Post entity with partial type
       expect(result).toContain("author: schema.PartialUser"); // User entity with partial type
-      
+
       // Check that partial types are generated
-      expect(result).toContain("export const PartialUser = Type.Object({");
-      expect(result).toContain("export const PartialPost = Type.Object({");
-      expect(result).toContain("export const PartialComment = Type.Object({");
+      expect(result).toContain("export const PartialUser = Type.Object(");
+      expect(result).toContain("export const PartialPost = Type.Object(");
+      expect(result).toContain("export const PartialComment = Type.Object(");
     });
 
     it("should write validators to file", async () => {
@@ -144,16 +155,16 @@ describe("Integration Tests", () => {
         entitiesDir: testEntitiesDir,
         outputFile: testOutputFile,
         targetValidationLibrary: "typebox",
-        write: true
+        write: true,
       });
 
       expect(existsSync(testOutputFile)).toBe(true);
-      
+
       const content = await Bun.file(testOutputFile).text();
       expect(content).toContain("export namespace schema {");
-      expect(content).toContain("export const User = Type.Object({");
-      expect(content).toContain("export const Post = Type.Object({");
-      expect(content).toContain("export const Comment = Type.Object({");
+      expect(content).toContain("export const User = Type.Object(");
+      expect(content).toContain("export const Post = Type.Object(");
+      expect(content).toContain("export const Comment = Type.Object(");
     });
   });
 
@@ -162,11 +173,11 @@ describe("Integration Tests", () => {
       const result = await generateEntityValidator({
         entitiesDir: testEntitiesDir,
         targetValidationLibrary: "zod",
-        write: false
+        write: false,
       });
 
       // Check Zod imports
-      expect(result).toContain("import { z } from 'zod'");
+      expect(result).toContain('import { z } from "zod"');
 
       // Check User entity
       expect(result).toContain("export const schema_User = z.object({");
@@ -199,11 +210,11 @@ describe("Integration Tests", () => {
       const result = await generateEntityValidator({
         entitiesDir: testEntitiesDir,
         targetValidationLibrary: "valibot",
-        write: false
+        write: false,
       });
 
       // Check Valibot imports
-      expect(result).toContain("import * as v from 'valibot'");
+      expect(result).toContain('import * as v from "valibot"');
 
       // Check User entity
       expect(result).toContain("export const schema_User = v.object({");
@@ -236,15 +247,17 @@ describe("Integration Tests", () => {
       const entityFiles = [
         await Bun.file(`${testEntitiesDir}/User.ts`).text(),
         await Bun.file(`${testEntitiesDir}/Post.ts`).text(),
-        await Bun.file(`${testEntitiesDir}/Comment.ts`).text()
+        await Bun.file(`${testEntitiesDir}/Comment.ts`).text(),
       ];
 
-      const result = generateEntityFileTypes(entityFiles, { usePartialTypes: true });
+      const result = generateEntityFileTypes(entityFiles, {
+        usePartialTypes: true,
+      });
 
       // Check that the result is wrapped in namespace schema
       expect(result).toContain("namespace schema {");
       expect(result).toContain("}");
-      
+
       // Check that entity references are replaced with inline object types containing primary key
       expect(result).toContain("export type User = {");
       expect(result).toContain("posts: any"); // Collection becomes any when entity ID types are not available
@@ -256,7 +269,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("export type Comment = {");
       expect(result).toContain("post: schema.PartialPost"); // Post entity with partial type
       expect(result).toContain("author: schema.PartialUser"); // User entity with partial type
-      
+
       // Check that partial types are generated
       expect(result).toContain("export type PartialUser = {");
       expect(result).toContain("export type PartialPost = {");
@@ -274,10 +287,12 @@ describe("Integration Tests", () => {
 
   describe("Error handling integration", () => {
     it("should handle missing entities directory gracefully", async () => {
-      await expect(generateEntityValidator({
-        entitiesDir: "./non-existent-directory",
-        write: false
-      })).rejects.toThrow("Entities directory does not exist");
+      await expect(
+        generateEntityValidator({
+          entitiesDir: "./non-existent-directory",
+          write: false,
+        }),
+      ).rejects.toThrow("Entities directory does not exist");
     });
 
     it("should handle empty entities directory", async () => {
@@ -287,7 +302,7 @@ describe("Integration Tests", () => {
       try {
         const result = await generateEntityValidator({
           entitiesDir: emptyDir,
-          write: false
+          write: false,
         });
 
         expect(result).toBeDefined();
@@ -298,32 +313,43 @@ describe("Integration Tests", () => {
     });
 
     it("should handle invalid target validation library", async () => {
-      await expect(generateEntityValidator({
-        entitiesDir: testEntitiesDir,
-        targetValidationLibrary: "invalid-library" as any,
-        write: false
-      })).rejects.toThrow("Invalid target validation library");
+      await expect(
+        generateEntityValidator({
+          entitiesDir: testEntitiesDir,
+          targetValidationLibrary: "invalid-library" as any,
+          write: false,
+        }),
+      ).rejects.toThrow("Invalid target validation library");
     });
   });
 
   describe("All validation libraries integration", () => {
     it("should generate validators for all supported libraries", async () => {
       const supportedLibraries = [
-        "arktype", "effect", "io-ts", "javascript", "json-schema",
-        "typebox", "typescript", "valibot", "value", "yup", "zod"
+        "arktype",
+        "effect",
+        "io-ts",
+        "javascript",
+        "json-schema",
+        "typebox",
+        "typescript",
+        "valibot",
+        "value",
+        "yup",
+        "zod",
       ] as const;
 
       for (const library of supportedLibraries) {
         const result = await generateEntityValidator({
           entitiesDir: testEntitiesDir,
           targetValidationLibrary: library,
-          write: false
+          write: false,
         });
 
         expect(result).toBeDefined();
         expect(typeof result).toBe("string");
         expect(result.length).toBeGreaterThan(0);
-        
+
         // Each library should generate some form of validator
         expect(result).toContain("User");
         expect(result).toContain("Post");

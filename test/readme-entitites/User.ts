@@ -1,5 +1,11 @@
-import { Entity, PrimaryKey, Property, Collection, OneToMany } from '@mikro-orm/core';
-import { Book } from './Book.js';
+import {
+  Entity,
+  PrimaryKey,
+  Property,
+  Collection,
+  OneToMany,
+} from "@mikro-orm/core";
+import { Book } from "./Book.js";
 
 @Entity()
 export class User {
@@ -12,7 +18,7 @@ export class User {
   @Property()
   email!: string;
 
-  @OneToMany(() => Book, book => book.author)
+  @OneToMany(() => Book, (book) => book.author)
   books = new Collection<Book>(this);
 
   constructor({ name, email }: User) {

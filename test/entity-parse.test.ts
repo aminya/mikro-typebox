@@ -1,5 +1,8 @@
 import { describe, it, expect } from "bun:test";
-import { generateEntityTypes, generateEntityFileTypes } from "../src/entity-parse.js";
+import {
+  generateEntityTypes,
+  generateEntityFileTypes,
+} from "../src/prepare.js";
 
 describe("entity-parse", () => {
   describe("generateEntityTypes", () => {
@@ -21,7 +24,7 @@ describe("entity-parse", () => {
       `;
 
       const result = generateEntityTypes(code);
-      
+
       expect(result).toContain("export type User = {");
       expect(result).toContain("id: number");
       expect(result).toContain("name: string");
@@ -51,7 +54,7 @@ describe("entity-parse", () => {
       `;
 
       const result = generateEntityTypes(code);
-      
+
       expect(result).toContain("export type User = {");
       expect(result).toContain("posts: any");
       expect(result).not.toContain("Collection<Post>");
@@ -76,7 +79,7 @@ describe("entity-parse", () => {
       `;
 
       const result = generateEntityTypes(code);
-      
+
       expect(result).toContain("export type Post = {");
       expect(result).toContain("author: User");
     });
@@ -100,7 +103,7 @@ describe("entity-parse", () => {
       `;
 
       const result = generateEntityTypes(code);
-      
+
       expect(result).not.toContain("import {");
       expect(result).not.toContain("@Entity()");
       expect(result).not.toContain("@PrimaryKey()");
@@ -127,7 +130,7 @@ describe("entity-parse", () => {
       `;
 
       const result = generateEntityTypes(code);
-      
+
       expect(result).toContain("export type User = {");
       expect(result).toContain("id: number");
       expect(result).toContain("export type Post = {");
@@ -152,7 +155,7 @@ describe("entity-parse", () => {
       `;
 
       const result = generateEntityTypes(code);
-      
+
       expect(result).toContain("email?: string");
       expect(result).toContain("name: string");
     });
@@ -219,18 +222,21 @@ describe("entity-parse", () => {
         }
       `;
 
-      const result = generateEntityFileTypes([userCode, postCode, commentCode], { usePartialTypes: true });
-      
+      const result = generateEntityFileTypes(
+        [userCode, postCode, commentCode],
+        { usePartialTypes: true },
+      );
+
       // Check that the result is wrapped in namespace schema
       expect(result).toContain("namespace schema {");
       expect(result).toContain("}");
-      
+
       // Check that entity references are replaced with partial types
       expect(result).toContain("author: schema.PartialUser"); // User entity with partial type
       expect(result).toContain("post: schema.PartialPost"); // Post entity with partial type
       expect(result).toContain("posts: any"); // Collection becomes any when entity ID types are not available
       expect(result).toContain("comments: any"); // Collection becomes any when entity ID types are not available
-      
+
       // Check that partial types are generated
       expect(result).toContain("export type PartialUser = {");
       expect(result).toContain("export type PartialPost = {");
@@ -252,11 +258,11 @@ describe("entity-parse", () => {
       `;
 
       const result = generateEntityFileTypes([code]);
-      
+
       // Check that the result is wrapped in namespace schema
       expect(result).toContain("namespace schema {");
       expect(result).toContain("}");
-      
+
       expect(result).toContain("export type User = {");
       expect(result).toContain("id: number");
       expect(result).toContain("name: string");
@@ -298,15 +304,17 @@ describe("entity-parse", () => {
         }
       `;
 
-      const result = generateEntityFileTypes([userCode, postCode], { usePartialTypes: true });
-      
+      const result = generateEntityFileTypes([userCode, postCode], {
+        usePartialTypes: true,
+      });
+
       // Check that the result is wrapped in namespace schema
       expect(result).toContain("namespace schema {");
       expect(result).toContain("}");
-      
+
       // Check that entity references are replaced with partial types
       expect(result).toContain("post: schema.PartialPost"); // Post entity with partial type
-      
+
       // Check that partial types are generated
       expect(result).toContain("export type PartialUser = {");
       expect(result).toContain("export type PartialPost = {");

@@ -19,7 +19,6 @@ export class Comment {
   @ManyToOne(() => User)
   author!: User;
 
-
   constructor({ content, createdAt, post, author }: Comment) {
     this.content = content;
     this.createdAt = createdAt;
