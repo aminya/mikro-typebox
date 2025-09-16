@@ -45,6 +45,11 @@ export type GenerateEntityValidatorOptions = {
    * @default true for typebox and false for other libraries
    */
   partials?: boolean | undefined;
+  /**
+   * Whether to print verbose output.
+   * @default false
+   */
+  verbose?: boolean | undefined;
 };
 
 /**
@@ -66,11 +71,19 @@ export async function generateEntityValidator(
         opts.targetValidationLibrary === "typebox"),
   });
 
+  if (opts.verbose) {
+    console.log("Types Code\n", typesCode);
+  }
+
   // generate the validator via the types
   const output: string = generateValidator(opts, typesCode);
 
   // format the code
   const formattedCode = await formatCode(output);
+
+  if (opts.verbose) {
+    console.log("Output\n", formattedCode);
+  }
 
   // write the code to a file
   if (opts.write) {

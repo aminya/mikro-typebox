@@ -39,6 +39,7 @@ async function main() {
       "Generate partial types instead of inline primary key references (default: true for typebox)",
     )
     .option("--no-partials")
+    .option("--verbose", "Verbose output", false)
     .action(async (options) => {
       try {
         const result = await generateEntityValidator({
@@ -48,6 +49,7 @@ async function main() {
           write: !options.noWrite,
           partials:
             options.partials ?? (options.noPartials ? false : undefined),
+          verbose: options.verbose,
         });
 
         if (options.noWrite) {

@@ -1,4 +1,5 @@
 import * as ts from "typescript";
+import { inferTypeFromInitializer } from "./infer.js";
 
 export interface EntityParseOptions {
   /**
@@ -216,7 +217,7 @@ function createPrimaryKeyObjectType(primaryKeyInfo: {
 /**
  * Replace entity type references with partial entity types (when usePartialTypes is true)
  */
-function replaceEntityTypeWithPartialType(
+export function replaceEntityTypeWithPartialType(
   type: ts.TypeNode,
   entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>,
 ): ts.TypeNode {
@@ -236,7 +237,7 @@ function replaceEntityTypeWithPartialType(
 /**
  * Replace entity type references with object types containing primary key (when usePartialTypes is false)
  */
-function replaceEntityTypeWithPrimaryKey(
+export function replaceEntityTypeWithPrimaryKey(
   type: ts.TypeNode,
   entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>,
 ): ts.TypeNode {
@@ -251,39 +252,24 @@ function replaceEntityTypeWithPrimaryKey(
 }
 
 /**
- * Replace entity type references with inline primary key objects for deep references
- */
-function replaceEntityTypeWithInlinePrimaryKey(
-  type: ts.TypeNode,
-  entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>,
-): ts.TypeNode {
-  if (ts.isTypeReferenceNode(type) && ts.isIdentifier(type.typeName)) {
-    const entityName = type.typeName.text;
-    const primaryKeyInfo = entityPrimaryKeys.get(entityName);
-    if (primaryKeyInfo) {
-      return createPrimaryKeyObjectType(primaryKeyInfo);
-    }
-  }
-  return type;
-}
-
-/**
- * Transform Collection<T> to Array<T> and replace entity types in generic arguments with inline primary key objects for deep references
+ * Transform Collection<T> to Array<T> and replace entity types in generic arguments based on usePartialTypes option
  */
 function transformCollectionType(
   type: ts.TypeNode,
   entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>,
+  options: EntityParseOptions,
 ): ts.TypeNode {
   if (
     ts.isTypeReferenceNode(type) &&
     ts.isIdentifier(type.typeName) &&
     type.typeName.text === "Collection"
   ) {
-    if (type.typeArguments && type.typeArguments.length > 0) {
-      // Replace entity types in the generic arguments with inline primary key objects for deep references
-      const transformedTypeArgs = type.typeArguments.map((typeArg) =>
-        replaceEntityTypeWithInlinePrimaryKey(typeArg, entityPrimaryKeys),
-      );
+    if (type.typeArguments !== undefined && type.typeArguments.length > 0) {
+      // Replace entity types in the generic arguments based on the usePartialTypes option
+      const transformedTypeArgs = type.typeArguments.map((typeArg) => {
+        return options.usePartialTypes ?
+          replaceEntityTypeWithPartialType(typeArg, entityPrimaryKeys) : replaceEntityTypeWithPrimaryKey(typeArg, entityPrimaryKeys);
+      });
       return ts.factory.createTypeReferenceNode(
         ts.factory.createIdentifier("Array"),
         transformedTypeArgs,
@@ -301,7 +287,7 @@ function transformCollectionType(
 /**
  * Transform a type node by replacing entities and collections
  */
-function transformTypeNode(
+export function transformTypeNode(
   type: ts.TypeNode,
   entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>,
   options: EntityParseOptions,
@@ -310,6 +296,7 @@ function transformTypeNode(
   const collectionTransformed = transformCollectionType(
     type,
     entityPrimaryKeys,
+    options,
   );
   if (collectionTransformed !== type) {
     return collectionTransformed;
@@ -425,9 +412,23 @@ const transformer = (
               ts.isIdentifier(member.name)
             ) {
               const propertyName = member.name.text;
-              let type =
-                member.type ||
-                ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword);
+              let type = member.type;
+
+              // If no explicit type annotation, try to infer from initializer
+              if (!type && member.initializer) {
+                type = inferTypeFromInitializer(
+                  member.initializer,
+                  entityPrimaryKeys,
+                  options,
+                );
+              }
+
+              // Fallback to any if we still don't have a type
+              if (!type) {
+                type = ts.factory.createKeywordTypeNode(
+                  ts.SyntaxKind.AnyKeyword,
+                );
+              }
 
               // Transform the type by replacing entities and collections
               type = transformTypeNode(type, entityPrimaryKeys, options);

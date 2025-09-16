@@ -56,7 +56,7 @@ describe("entity-parse", () => {
       const result = generateEntityTypes(code);
 
       expect(result).toContain("export type User = {");
-      expect(result).toContain("posts: any");
+      expect(result).toContain("posts: Array<Post>");
       expect(result).not.toContain("Collection<Post>");
     });
 
@@ -234,8 +234,8 @@ describe("entity-parse", () => {
       // Check that entity references are replaced with partial types
       expect(result).toContain("author: schema.PartialUser"); // User entity with partial type
       expect(result).toContain("post: schema.PartialPost"); // Post entity with partial type
-      expect(result).toContain("posts: any"); // Collection becomes any when entity ID types are not available
-      expect(result).toContain("comments: any"); // Collection becomes any when entity ID types are not available
+      expect(result).toContain("posts: Array<schema.PartialPost>"); // Collection with partial entity type
+      expect(result).toContain("comments: Array<schema.PartialComment>"); // Collection with partial entity type
 
       // Check that partial types are generated
       expect(result).toContain("export type PartialUser = {");
