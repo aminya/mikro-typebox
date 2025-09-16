@@ -10,7 +10,10 @@ import { type EntityParseOptions, replaceEntityTypeWithPartialType, replaceEntit
 export function inferTypeFromInitializer(
   initializer: ts.Expression,
   entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode; }>,
-  options: EntityParseOptions): ts.TypeNode | undefined {
+  options: EntityParseOptions,
+  circularReferences: Map<string, Set<string>> = new Map(),
+  currentEntity?: string,
+): ts.TypeNode | undefined {
   // Handle new Collection<T>(this) pattern
   if (ts.isNewExpression(initializer)) {
     const expression = initializer.expression;
@@ -25,7 +28,7 @@ export function inferTypeFromInitializer(
 
       // Transform the generic type based on the usePartialTypes option
       const transformedType = options.usePartialTypes
-        ? replaceEntityTypeWithPartialType(genericType, entityPrimaryKeys)
+        ? replaceEntityTypeWithPartialType(genericType, entityPrimaryKeys, circularReferences, currentEntity)
         : replaceEntityTypeWithPrimaryKey(genericType, entityPrimaryKeys);
 
       // Return Array<T> instead of Collection<T>
@@ -39,7 +42,7 @@ export function inferTypeFromInitializer(
   // Handle other generic type patterns that might be inferred
   if (ts.isTypeReferenceNode(initializer)) {
     // This handles cases where the initializer is already a type reference
-    return transformTypeNode(initializer, entityPrimaryKeys, options);
+    return transformTypeNode(initializer, entityPrimaryKeys, options, circularReferences, currentEntity);
   }
 
   // Handle array literals
