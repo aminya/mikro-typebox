@@ -19,7 +19,7 @@ export class User {
   email!: string;
 
   @Property({ nullable: true })
-  age?: number | undefined;
+  age?: number;
 
   @OneToMany(() => Post, (post) => post.author)
   posts = new Collection<Post>(this);
