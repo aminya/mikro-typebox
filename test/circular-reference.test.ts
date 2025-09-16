@@ -86,11 +86,11 @@ describe("Circular Reference Detection and Breaking", () => {
       expect(result).toContain("export type PartialComment = {");
 
       // Check that relations use partial types or are broken by circular reference detection
-      expect(result).toContain("posts: Array<schema.PartialPost>");
+      expect(result).toContain("posts: Collection<schema.PartialPost> | Array<schema.PartialPost>");
       // The author relation should be broken due to circular reference detection
       expect(result).toContain("author: {");
       expect(result).toContain("id: number");
-      expect(result).toContain("comments: Array<schema.PartialComment>");
+      expect(result).toContain("comments: Collection<schema.PartialComment> | Array<schema.PartialComment>");
       // The post relation should be broken due to circular reference detection
       expect(result).toContain("post: {");
       expect(result).toContain("id: string");

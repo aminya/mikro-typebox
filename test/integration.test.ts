@@ -117,7 +117,7 @@ describe("Integration Tests", () => {
 
       // Check TypeBox imports
       expect(result).toContain(
-        'import { Type, Static } from "@sinclair/typebox"',
+        'import { Type, Static, TSchema } from "@sinclair/typebox"',
       );
       expect(result).toContain("export namespace schema {");
 
@@ -127,7 +127,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("name: Type.String()");
       expect(result).toContain("email: Type.String()");
       expect(result).toContain("age: Type.Optional(Type.Number())");
-      expect(result).toContain("posts: Type.Array("); // Collection with partial entity type or inlined object
+      expect(result).toContain("posts: Type.Union(["); // Collection with partial entity type or inlined object
 
       // Check Post entity
       expect(result).toContain("export const Post = Type.Object(");
@@ -135,7 +135,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("content: Type.String()");
       expect(result).toContain("publishedAt: Type.Date()");
       expect(result).toContain("author: "); // User entity with partial type or inlined object
-      expect(result).toContain("comments: Type.Array("); // Collection with partial entity type or inlined object
+      expect(result).toContain("comments: Type.Union(["); // Collection with partial entity type or inlined object
 
       // Check Comment entity
       expect(result).toContain("export const Comment = Type.Object(");
@@ -185,7 +185,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("name: z.string()");
       expect(result).toContain("email: z.string()");
       expect(result).toContain("age: z.number().optional()");
-      expect(result).toContain("posts: z.array("); // Collection with inline object type
+      expect(result).toContain("posts: z.union(["); // Collection with inline object type
 
       // Check Post entity
       expect(result).toContain("export const schema_Post = z.object({");
@@ -194,7 +194,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("publishedAt: z.date()");
       expect(result).toContain("author: z.object({"); // User entity with inline object type
       expect(result).toContain("id: z.number()"); // User ID within object
-      expect(result).toContain("comments: z.array("); // Collection with inline object type
+      expect(result).toContain("comments: z.union(["); // Collection with inline object type
 
       // Check Comment entity
       expect(result).toContain("export const schema_Comment = z.object({");
@@ -222,7 +222,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("name: v.string()");
       expect(result).toContain("email: v.string()");
       expect(result).toContain("age: v.optional(v.number())");
-      expect(result).toContain("posts: v.array("); // Collection with inline object type
+      expect(result).toContain("posts: v.union(["); // Collection with inline object type
 
       // Check Post entity
       expect(result).toContain("export const schema_Post = v.object({");
@@ -231,7 +231,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("publishedAt: v.date()");
       expect(result).toContain("author: v.object({"); // User entity with inline object type
       expect(result).toContain("id: v.number()"); // User ID within object
-      expect(result).toContain("comments: v.array("); // Collection with inline object type
+      expect(result).toContain("comments: v.union(["); // Collection with inline object type
 
       // Check Comment entity
       expect(result).toContain("export const schema_Comment = v.object({");
@@ -260,11 +260,11 @@ describe("Integration Tests", () => {
 
       // Check that entity references are replaced with inline object types containing primary key
       expect(result).toContain("export type User = {");
-      expect(result).toContain("posts: Array<"); // Collection with partial entity type or inlined object
+      expect(result).toContain("posts: Collection<"); // Collection with partial entity type or inlined object
 
       expect(result).toContain("export type Post = {");
       expect(result).toContain("author: "); // User entity with partial type or inlined object
-      expect(result).toContain("comments: Array<"); // Collection with partial entity type or inlined object
+      expect(result).toContain("comments: Collection<"); // Collection with partial entity type or inlined object
 
       expect(result).toContain("export type Comment = {");
       expect(result).toContain("post: "); // Post entity with partial type or inlined object

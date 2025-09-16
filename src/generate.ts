@@ -139,7 +139,7 @@ function generateValidator(
     return Codegen.TypeScriptToTypeBox.Generate(typesCode, {
       useExportEverything: true,
       useTypeBoxImport: true,
-      useIdentifiers: true,
+      useIdentifiers: false,
     });
   } else if (opts.targetValidationLibrary in modelsToFunction) {
     // generate the model

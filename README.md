@@ -6,9 +6,10 @@ Generate validation schemas from Mikro-ORM entities. Supports TypeBox, Zod, Vali
 
 - 🏗️ **Entity Type Generation**: Converts Mikro-ORM entity classes to TypeScript types
 - 🔄 **Multiple Validation Libraries**: Supports TypeBox, Zod, Valibot, ArkType, Effect, io-ts, Yup, and more
-- 🎯 **Smart Type Resolution**: Automatically replaces entity references with their ID types
-- 📦 **Collection Handling**: Converts `Collection<T>` to `Array<T>` with proper type mapping
-- 🧹 **Code Cleanup**: Removes imports, decorators, and method calls from generated types
+- 🎯 **Smart Type Resolution**: Automatically resolves entity references depending on the relation graph between entities
+- 🔄 **Circular Reference Handling**: Automatically breaks circular references to avoid infinite recursion
+- 🔄 **Partial Types**: Generates partial types for entities with optional properties
+- 📦 **Collection Handling**: Handles `Collection<T>` and `Array<T>` with proper type mapping
 
 ## Installation
 
