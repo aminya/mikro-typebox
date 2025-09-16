@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { program } from 'commander';
-import { generateEntityValidator, modelsToFunction } from './entity-validator.js';
+import { generateEntityValidator, modelsToFunction } from './generate.js';
 
 async function main() {
   program

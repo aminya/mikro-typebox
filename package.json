@@ -38,6 +38,9 @@
     "commander": "^14.0.1",
     "typescript": "^5.9.2"
   },
+  "optionalDependencies": {
+    "prettier": "^3.6.2"
+  },
   "tags": [
     "mikro-orm",
     "typebox",
