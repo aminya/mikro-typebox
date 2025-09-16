@@ -25,10 +25,11 @@ async function main() {
       "./src/entity-validators.ts",
     )
     .option(
-      "--no-write",
+      "--write",
       "Print the code to the console instead of writing to a file",
-      false,
+      true
     )
+    .option("--no-write")
     .option(
       "-t, --target <library>",
       `Target validation library (${modelNames.join(", ")})`,
@@ -46,13 +47,13 @@ async function main() {
           entitiesDir: options.entities,
           outputFile: options.output,
           targetValidationLibrary: options.target,
-          write: !options.noWrite,
+          write: options.write,
           partials:
             options.partials ?? (options.noPartials ? false : undefined),
           verbose: options.verbose,
         });
 
-        if (options.noWrite) {
+        if (!options.write) {
           console.log(result);
         }
       } catch (error) {
