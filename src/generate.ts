@@ -3,7 +3,6 @@ import { existsSync } from "fs";
 import { readdir, readFile, writeFile } from "fs/promises";
 import { generateEntityFileTypes } from "./prepare.js";
 import path from "path";
-import { Distribution } from "@biomejs/js-api";
 
 export const modelsToFunction = {
 	arktype: "ArkType",
@@ -119,7 +118,7 @@ function generateValidator(opts: GenerateEntityValidatorOptions, typesCode: stri
 async function formatCode(code: string) {
 	try {
 		const prettier = await import("prettier");
-		return prettier.format(code, {
+		return await prettier.format(code, {
 			parser: "typescript"
 		});
 	} catch (error) {
