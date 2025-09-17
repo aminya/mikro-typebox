@@ -21,6 +21,95 @@ interface EntityRelation {
 
 
 /**
+ * Sort entities by dependency order, handling circular dependencies gracefully
+ * Returns entities in order from least dependent to most dependent
+ */
+function sortEntitiesByDependency(
+  entityRelations: EntityRelation[],
+  entityNames: Set<string>,
+): string[] {
+  const inDegree = new Map<string, number>();
+  const adjacencyList = new Map<string, string[]>();
+  
+  // Initialize in-degree and adjacency list
+  for (const entityName of entityNames) {
+    inDegree.set(entityName, 0);
+    adjacencyList.set(entityName, []);
+  }
+  
+  // Build the graph
+  for (const relation of entityRelations) {
+    if (entityNames.has(relation.from) && entityNames.has(relation.to)) {
+      // Add edge from 'to' to 'from' (dependency: 'from' depends on 'to')
+      const dependents = adjacencyList.get(relation.to) || [];
+      dependents.push(relation.from);
+      adjacencyList.set(relation.to, dependents);
+      
+      // Increment in-degree of the dependent entity
+      inDegree.set(relation.from, (inDegree.get(relation.from) || 0) + 1);
+    }
+  }
+  
+  // Try topological sort first
+  const queue: string[] = [];
+  for (const [entity, degree] of inDegree) {
+    if (degree === 0) {
+      queue.push(entity);
+    }
+  }
+  
+  const result: string[] = [];
+  const workingInDegree = new Map(inDegree);
+  
+  // Process entities in topological order
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    result.push(current);
+    
+    // Process all entities that depend on current
+    const dependents = adjacencyList.get(current) || [];
+    for (const dependent of dependents) {
+      const newDegree = (workingInDegree.get(dependent) || 0) - 1;
+      workingInDegree.set(dependent, newDegree);
+      
+      if (newDegree === 0) {
+        queue.push(dependent);
+      }
+    }
+  }
+  
+  // If we couldn't process all entities due to circular dependencies,
+  // use a heuristic: sort remaining entities by in-degree (fewer dependencies first)
+  // For entities with the same in-degree, use a more sophisticated tiebreaker
+  const remaining = Array.from(entityNames).filter(name => !result.includes(name));
+  if (remaining.length > 0) {
+    remaining.sort((a, b) => {
+      const degreeA = inDegree.get(a) || 0;
+      const degreeB = inDegree.get(b) || 0;
+      
+      // Primary sort: by in-degree (fewer dependencies first)
+      if (degreeA !== degreeB) {
+        return degreeA - degreeB;
+      }
+      
+      // Secondary sort: by number of entities that this entity depends on
+      // (entities with fewer outgoing dependencies first)
+      const outgoingA = entityRelations.filter(r => r.from === a).length;
+      const outgoingB = entityRelations.filter(r => r.from === b).length;
+      if (outgoingA !== outgoingB) {
+        return outgoingA - outgoingB; // Fewer outgoing dependencies first
+      }
+      
+      // Tertiary sort: by name for consistency
+      return a.localeCompare(b);
+    });
+    result.push(...remaining);
+  }
+  
+  return result;
+}
+
+/**
  * Detect circular references in entity relations
  */
 function detectCircularReferences(
@@ -257,8 +346,53 @@ export function generateEntityFileTypes(
   // Detect circular references
   const circularReferences = detectCircularReferences(entityRelations, entityNames);
 
+  // Create a map from entity names to their file contents for reordering
+  const entityToFileMap = new Map<string, string>();
+  const tempSourceFiles = fileContents.map((code, index) => 
+    ts.createSourceFile(`temp${index}.ts`, code, ts.ScriptTarget.Latest, true)
+  );
+  
+  // Map each entity to its source file content
+  for (let i = 0; i < tempSourceFiles.length; i++) {
+    const tempSourceFile = tempSourceFiles[i];
+    const originalCode = fileContents[i];
+    
+    if (tempSourceFile && originalCode) {
+      // Find entities in this file
+      const fileEntityNames = new Set<string>();
+      visitEntities(tempSourceFile, new Map(), fileEntityNames);
+      
+      // Map each entity to this file's content
+      for (const entityName of fileEntityNames) {
+        entityToFileMap.set(entityName, originalCode);
+      }
+    }
+  }
+
+  // Sort entities by dependency order
+  const sortedEntityNames = sortEntitiesByDependency(entityRelations, entityNames);
+  
+  // Reorder file contents based on dependency order
+  const reorderedFileContents: string[] = [];
+  const processedFiles = new Set<string>();
+  
+  for (const entityName of sortedEntityNames) {
+    const fileContent = entityToFileMap.get(entityName);
+    if (fileContent && !processedFiles.has(fileContent)) {
+      reorderedFileContents.push(fileContent);
+      processedFiles.add(fileContent);
+    }
+  }
+  
+  // Add any remaining files that weren't processed (shouldn't happen in normal cases)
+  for (const fileContent of fileContents) {
+    if (!processedFiles.has(fileContent)) {
+      reorderedFileContents.push(fileContent);
+    }
+  }
+
   // Second pass: process each file with the complete entity map and circular reference info
-  const generatedTypes = fileContents
+  const generatedTypes = reorderedFileContents
     .map((code) => generateEntityTypes(code, entityPrimaryKeys, options, circularReferences))
     .join("\n");
 
