@@ -64,9 +64,17 @@ export function postprocessEnums(
     for (const [enumName, originalName] of enumDefinitions) {
         if (!processedEnums.has(originalName)) {
             // Use the enum map to find the correct import path
-            const enumPath = enumMap.get(originalName);
+            let enumPath = enumMap.get(originalName);
             if (!enumPath) {
                 throw new Error(`Enum path not found for ${originalName} in ${outputPath}`);
+            }
+            // use js extension instead of ts
+            if (enumPath.endsWith(".ts")) {
+                enumPath = `${enumPath.slice(0, -3)}.js`;
+            } else if (enumPath.endsWith(".mts")) {
+                enumPath = `${enumPath.slice(0, -4)}.mjs`;
+            } else if (enumPath.endsWith(".cts")) {
+                enumPath = `${enumPath.slice(0, -4)}.cjs`;
             }
             let importPath = path.relative(path.dirname(outputPath), enumPath);
             if (!importPath.startsWith(".")) {
