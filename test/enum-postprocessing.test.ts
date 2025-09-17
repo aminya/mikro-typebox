@@ -28,8 +28,8 @@ export const UserStatus = Type.Enum(EnumUserStatus);`;
     const result = postprocessEnums(input, enumMap, "./src/entity-validators.ts");
 
     // Should add imports for the original enums
-    expect(result).toContain('import { UserRole as EnumUserRole } from "entities/User.ts";');
-    expect(result).toContain('import { UserStatus as EnumUserStatus } from "entities/User.ts";');
+    expect(result).toContain('import { UserRole as EnumUserRole } from "./entities/User.ts";');
+    expect(result).toContain('import { UserStatus as EnumUserStatus } from "./entities/User.ts";');
 
     // Should remove the redefined enum declarations
     expect(result).not.toContain('export enum EnumUserRole {');
@@ -81,7 +81,7 @@ export type Post = {
     const result = postprocessEnums(input, enumMap, "./src/entity-validators.ts");
 
     // Should add import for the enum
-    expect(result).toContain('import { UserRole as EnumUserRole } from "entities/User.ts";');
+    expect(result).toContain('import { UserRole as EnumUserRole } from "./entities/User.ts";');
 
     // Should remove the redefined enum declaration
     expect(result).not.toContain('export enum EnumUserRole {');

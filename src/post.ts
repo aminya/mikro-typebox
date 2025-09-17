@@ -68,7 +68,10 @@ export function postprocessEnums(
             if (!enumPath) {
                 throw new Error(`Enum path not found for ${originalName} in ${outputPath}`);
             }
-            const importPath = path.relative(path.dirname(outputPath), enumPath);
+            let importPath = path.relative(path.dirname(outputPath), enumPath);
+            if (!importPath.startsWith(".")) {
+                importPath = `./${importPath}`;
+            }
             imports.push(`import { ${originalName} as ${enumName} } from "${importPath}";`);
             processedEnums.add(originalName);
         }

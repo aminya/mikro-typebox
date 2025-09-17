@@ -103,7 +103,7 @@ export async function generateEntityValidator(
 }
 
 async function readEntities(opts: GenerateEntityValidatorOptions) {
-  const entitiesDir = opts.entitiesDir ?? "./src/entities";
+  const entitiesDir = path.resolve(opts.entitiesDir ?? "./src/entities");
   if (!existsSync(entitiesDir)) {
     throw new Error(
       `Entities directory does not exist: ${entitiesDir}. Set the entitiesDir option to the correct directory.`,
@@ -130,9 +130,9 @@ async function readEntities(opts: GenerateEntityValidatorOptions) {
   // read the entity files and return a map of entity names to their contents
   return new Map(await Promise.all(
     entityFiles.map(async (entity): Promise<[string, string]> => {
-      const entityPath = `${entitiesDir}/${entity}`;
+      const entityPath = path.join(entitiesDir, entity);
       const content = await readFile(entityPath, "utf-8");
-      return [entity, content];
+      return [entityPath, content];
     }),
   ));
 }
