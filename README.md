@@ -6,7 +6,7 @@ Generate validation schemas from Mikro-ORM entities. Supports TypeBox, Zod, Vali
 
 - 🏗️ **Entity Type Generation**: Converts Mikro-ORM entity classes to TypeScript types
 - 🔄 **Multiple Validation Libraries**: Supports TypeBox, Zod, Valibot, ArkType, Effect, io-ts, Yup, and more
-- 🎯 **Smart Type Resolution**: Automatically resolves entity references depending on the relation graph between entities
+- 🎯 **Smart Type Resolution**: Automatically resolves entity references depending on the relation graph between entities and sorts them by dependency order
 - 🔄 **Circular Reference Handling**: Automatically breaks circular references to avoid infinite recursion
 - 🔄 **Partial Types**: Generates partial types for entities with optional properties
 - 📦 **Collection Handling**: Handles `Collection<T>` and `Array<T>` with proper type mapping
@@ -21,15 +21,19 @@ npm install --save-dev mikro-typebox
 
 The package includes a command-line interface for easy usage:
 
+Generate typebox schema from `./src/entities` to `./src/entity-validators.ts`
 ```shell
-# Generate typebox schema from `./src/entities` to `./src/entity-validators.ts`
 npx mikro-typebox generate
+```
 
-# Generate for Zod
+Generate Zod schema from `./src/entities` to `./src/entity-validators.ts`
+```shell
 npx mikro-typebox generate --target zod
+```
 
-# Specify entities directory and output file
-npx mikro-typebox generate --target zod --entities ./src/models --output ./src/entity-validators.ts
+Generate Valibot schema from `./src/models` to `./src/validators.ts`
+```shell
+npx mikro-typebox generate --target valibot --entities ./src/models --output ./src/validators.ts
 ```
 
 ### CLI Options
@@ -179,39 +183,73 @@ export class Book {
 And then generate validation schemas (e.g., with TypeBox):
 
 ```typescript
-import { Type, Static } from "@sinclair/typebox"'
+import { Type, Static, TSchema } from "@sinclair/typebox";
 
 export namespace schema {
-    export type Book = Static<typeof Book>
-    export const Book = Type.Object({
-        id: Type.Number(),
-        title: Type.String(),
-        author: schema.PartialUser
-    }, { "$id": "schema.Book" })
+  export type Collection<T extends TSchema> = Static<
+    ReturnType<typeof Collection<T>>
+  >;
+  export const Collection = <T extends TSchema>(T: T) =>
+    Type.Object(
+      {},
+      {
+        additionalProperties: T,
+      },
+    );
 
-    export type PartialBook = Static<typeof PartialBook>
-    export const PartialBook = Type.Object({
-        id: Type.Number(),
-        title: Type.Optional(Type.String()),
-        author: Type.Optional(schema.PartialUser)
-    }, { "$id": "schema.PartialBook" })
+  export type Book = Static<typeof Book>;
+  export const Book = Type.Object({
+    id: Type.Number(),
+    title: Type.String(),
+    author: schema.PartialUser,
+  });
 
-    export type User = Static<typeof User>
-    export const User = Type.Object({
-        id: Type.Number(),
-        name: Type.String(),
-        email: Type.String(),
-        books: Type.Any()
-    }, { "$id": "schema.User" })
+  export type PartialBook = Static<typeof PartialBook>;
+  export const PartialBook = Type.Object({
+    id: Type.Number(),
+    title: Type.Optional(Type.String()),
+    author: Type.Optional(schema.PartialUser),
+  });
 
-    export type PartialUser = Static<typeof PartialUser>
-    export const PartialUser = Type.Object({
-        id: Type.Number(),
-        name: Type.Optional(Type.String()),
-        email: Type.Optional(Type.String()),
-        books: Type.Optional(Type.Any())
-    }, { "$id": "schema.PartialUser" })
+  export type User = Static<typeof User>;
+  export const User = Type.Object({
+    id: Type.Number(),
+    name: Type.String(),
+    email: Type.String(),
+    books: Type.Union([
+      Collection(
+        Type.Object({
+          id: Type.Number(),
+        }),
+      ),
+      Type.Array(
+        Type.Object({
+          id: Type.Number(),
+        }),
+      ),
+    ]),
+  });
 
+  export type PartialUser = Static<typeof PartialUser>;
+  export const PartialUser = Type.Object({
+    id: Type.Number(),
+    name: Type.Optional(Type.String()),
+    email: Type.Optional(Type.String()),
+    books: Type.Optional(
+      Type.Union([
+        Collection(
+          Type.Object({
+            id: Type.Number(),
+          }),
+        ),
+        Type.Array(
+          Type.Object({
+            id: Type.Number(),
+          }),
+        ),
+      ]),
+    ),
+  });
 }
 ```
 
@@ -224,7 +262,9 @@ export type schema_Book = z.infer<typeof schema_Book>;
 export const schema_Book = z.object({
   id: z.number(),
   title: z.string(),
-  author: z.object({}),
+  author: z.object({
+    id: z.number(),
+  }),
 });
 
 export type schema_User = z.infer<typeof schema_User>;
@@ -232,7 +272,14 @@ export const schema_User = z.object({
   id: z.number(),
   name: z.string(),
   email: z.string(),
-  books: z.any(),
+  books: z.union([
+    z.object({}),
+    z.array(
+      z.object({
+        id: z.number(),
+      }),
+    ),
+  ]),
 });
 ```
 

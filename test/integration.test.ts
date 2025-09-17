@@ -244,15 +244,15 @@ describe("Integration Tests", () => {
 
   describe("Entity parsing integration", () => {
     it("should correctly parse and transform complex entity relationships", async () => {
-      const entityFiles = [
-        await Bun.file(`${testEntitiesDir}/User.ts`).text(),
-        await Bun.file(`${testEntitiesDir}/Post.ts`).text(),
-        await Bun.file(`${testEntitiesDir}/Comment.ts`).text(),
-      ];
+      const entityFiles = new Map([
+        ["User.ts", await Bun.file(`${testEntitiesDir}/User.ts`).text()],
+        ["Post.ts", await Bun.file(`${testEntitiesDir}/Post.ts`).text()],
+        ["Comment.ts", await Bun.file(`${testEntitiesDir}/Comment.ts`).text()],
+      ]);
 
       const result = generateEntityFileTypes(entityFiles, {
         usePartialTypes: true,
-      });
+      }).typesCode;
 
       // Check that the result is wrapped in namespace schema
       expect(result).toContain("namespace schema {");

@@ -30,13 +30,13 @@ function sortEntitiesByDependency(
 ): string[] {
   const inDegree = new Map<string, number>();
   const adjacencyList = new Map<string, string[]>();
-  
+
   // Initialize in-degree and adjacency list
   for (const entityName of entityNames) {
     inDegree.set(entityName, 0);
     adjacencyList.set(entityName, []);
   }
-  
+
   // Build the graph
   for (const relation of entityRelations) {
     if (entityNames.has(relation.from) && entityNames.has(relation.to)) {
@@ -44,12 +44,12 @@ function sortEntitiesByDependency(
       const dependents = adjacencyList.get(relation.to) || [];
       dependents.push(relation.from);
       adjacencyList.set(relation.to, dependents);
-      
+
       // Increment in-degree of the dependent entity
       inDegree.set(relation.from, (inDegree.get(relation.from) || 0) + 1);
     }
   }
-  
+
   // Try topological sort first
   const queue: string[] = [];
   for (const [entity, degree] of inDegree) {
@@ -57,27 +57,27 @@ function sortEntitiesByDependency(
       queue.push(entity);
     }
   }
-  
+
   const result: string[] = [];
   const workingInDegree = new Map(inDegree);
-  
+
   // Process entities in topological order
   while (queue.length > 0) {
     const current = queue.shift()!;
     result.push(current);
-    
+
     // Process all entities that depend on current
     const dependents = adjacencyList.get(current) || [];
     for (const dependent of dependents) {
       const newDegree = (workingInDegree.get(dependent) || 0) - 1;
       workingInDegree.set(dependent, newDegree);
-      
+
       if (newDegree === 0) {
         queue.push(dependent);
       }
     }
   }
-  
+
   // If we couldn't process all entities due to circular dependencies,
   // use a heuristic: sort remaining entities by in-degree (fewer dependencies first)
   // For entities with the same in-degree, use a more sophisticated tiebreaker
@@ -86,12 +86,12 @@ function sortEntitiesByDependency(
     remaining.sort((a, b) => {
       const degreeA = inDegree.get(a) || 0;
       const degreeB = inDegree.get(b) || 0;
-      
+
       // Primary sort: by in-degree (fewer dependencies first)
       if (degreeA !== degreeB) {
         return degreeA - degreeB;
       }
-      
+
       // Secondary sort: by number of entities that this entity depends on
       // (entities with fewer outgoing dependencies first)
       const outgoingA = entityRelations.filter(r => r.from === a).length;
@@ -99,13 +99,13 @@ function sortEntitiesByDependency(
       if (outgoingA !== outgoingB) {
         return outgoingA - outgoingB; // Fewer outgoing dependencies first
       }
-      
+
       // Tertiary sort: by name for consistency
       return a.localeCompare(b);
     });
     result.push(...remaining);
   }
-  
+
   return result;
 }
 
@@ -127,7 +127,7 @@ function detectCircularReferences(
       const cycleStart = path.indexOf(entityName);
       const cycle = path.slice(cycleStart);
       cycle.push(entityName); // Complete the cycle
-      
+
       // Store the cycle for later processing
       allCycles.push(cycle);
       return;
@@ -160,10 +160,10 @@ function detectCircularReferences(
 
   // Process cycles to break the minimum number of relations
   const brokenRelations = new Set<string>();
-  
+
   // Sort cycles by length (longest first) to prioritize breaking longer cycles
   allCycles.sort((a, b) => b.length - a.length);
-  
+
   for (const cycle of allCycles) {
     // Check if this cycle is already broken by a previously broken relation
     let isCycleBroken = false;
@@ -176,7 +176,7 @@ function detectCircularReferences(
         break;
       }
     }
-    
+
     if (!isCycleBroken && cycle.length >= 2) {
       // Break the last relation in the cycle
       const from = cycle[cycle.length - 2];
@@ -184,7 +184,7 @@ function detectCircularReferences(
       if (from && to && from !== to) {
         const relationKey = `${from}->${to}`;
         brokenRelations.add(relationKey);
-        
+
         if (!circularReferences.has(from)) {
           circularReferences.set(from, new Set());
         }
@@ -243,7 +243,7 @@ function collectEntityRelations(
           if (hasManyToOne || hasOneToMany) {
             // Extract the target entity name from the type or decorator arguments
             let targetEntityName: string | null = null;
-            
+
             // First try to get from decorator arguments
             if (hasManyToOne) {
               const manyToOneDecorator = member.modifiers?.find(
@@ -253,15 +253,15 @@ function collectEntityRelations(
                   ts.isIdentifier(modifier.expression.expression) &&
                   modifier.expression.expression.text === "ManyToOne"
               );
-              if (manyToOneDecorator && 'expression' in manyToOneDecorator && ts.isCallExpression(manyToOneDecorator.expression) && 
-                  manyToOneDecorator.expression.arguments.length > 0) {
+              if (manyToOneDecorator && 'expression' in manyToOneDecorator && ts.isCallExpression(manyToOneDecorator.expression) &&
+                manyToOneDecorator.expression.arguments.length > 0) {
                 const firstArg = manyToOneDecorator.expression.arguments[0];
                 if (firstArg && ts.isStringLiteral(firstArg)) {
                   targetEntityName = firstArg.text;
                 }
               }
             }
-            
+
             if (hasOneToMany) {
               const oneToManyDecorator = member.modifiers?.find(
                 (modifier) =>
@@ -270,15 +270,15 @@ function collectEntityRelations(
                   ts.isIdentifier(modifier.expression.expression) &&
                   modifier.expression.expression.text === "OneToMany"
               );
-              if (oneToManyDecorator && 'expression' in oneToManyDecorator && ts.isCallExpression(oneToManyDecorator.expression) && 
-                  oneToManyDecorator.expression.arguments.length > 0) {
+              if (oneToManyDecorator && 'expression' in oneToManyDecorator && ts.isCallExpression(oneToManyDecorator.expression) &&
+                oneToManyDecorator.expression.arguments.length > 0) {
                 const firstArg = oneToManyDecorator.expression.arguments[0];
                 if (firstArg && ts.isStringLiteral(firstArg)) {
                   targetEntityName = firstArg.text;
                 }
               }
             }
-            
+
             // Fallback to type annotation if not found in decorator
             if (!targetEntityName) {
               if (propertyType && ts.isTypeReferenceNode(propertyType) && ts.isIdentifier(propertyType.typeName)) {
@@ -287,7 +287,7 @@ function collectEntityRelations(
                 // Handle Collection<T> initializers
                 const expression = member.initializer.expression;
                 if (ts.isIdentifier(expression) && expression.text === "Collection" &&
-                    member.initializer.typeArguments && member.initializer.typeArguments.length > 0) {
+                  member.initializer.typeArguments && member.initializer.typeArguments.length > 0) {
                   const genericType = member.initializer.typeArguments[0];
                   if (genericType && ts.isTypeReferenceNode(genericType) && ts.isIdentifier(genericType.typeName)) {
                     targetEntityName = genericType.typeName.text;
@@ -319,63 +319,65 @@ function collectEntityRelations(
  * Process multiple entity files and generate types with proper entity ID replacement
  */
 export function generateEntityFileTypes(
-  fileContents: string[],
+  files: Map<string, string>,
   options: EntityParseOptions = {},
-): string {
+): { typesCode: string; enumDefinitions: Map<string, string> } {
   // First pass: collect all entities and their primary key info from all files
   const entityPrimaryKeys = new Map<
     string,
     { fieldName: string; fieldType: ts.TypeNode }
   >();
-  const entityNames = new Set<string>();
-  const entityRelations: EntityRelation[] = [];
-  const allCode = fileContents.join("\n");
   const sourceFile = ts.createSourceFile(
     "temp.ts",
-    allCode,
+    Array.from(files.values()).join("\n"),
     ts.ScriptTarget.Latest,
-    true,
+    true
   );
+
+  // Collect all entity names
+  const entityNames = new Set<string>();
 
   // Collect all entities from all files
   visitEntities(sourceFile, entityPrimaryKeys, entityNames);
-  
+
+  // Collect all entity relations
+  const entityRelations: EntityRelation[] = [];
+
   // Then collect entity relations for circular reference detection
   collectEntityRelations(sourceFile, entityRelations, entityNames);
-  
+
   // Detect circular references
   const circularReferences = detectCircularReferences(entityRelations, entityNames);
 
   // Create a map from entity names to their file contents for reordering
   const entityToFileMap = new Map<string, string>();
-  const tempSourceFiles = fileContents.map((code, index) => 
-    ts.createSourceFile(`temp${index}.ts`, code, ts.ScriptTarget.Latest, true)
-  );
-  
+  // Collect enum definitions
+  const enumDefinitions = new Map<string, string>();
+
   // Map each entity to its source file content
-  for (let i = 0; i < tempSourceFiles.length; i++) {
-    const tempSourceFile = tempSourceFiles[i];
-    const originalCode = fileContents[i];
-    
-    if (tempSourceFile && originalCode) {
-      // Find entities in this file
-      const fileEntityNames = new Set<string>();
-      visitEntities(tempSourceFile, new Map(), fileEntityNames);
-      
-      // Map each entity to this file's content
-      for (const entityName of fileEntityNames) {
-        entityToFileMap.set(entityName, originalCode);
-      }
+  for (const [filePath, content] of files) {
+    const sourceFile = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true);
+
+    // Collect enum declarations from this file
+    enumVisitor(sourceFile, filePath, enumDefinitions);
+
+    // Find entities in this file
+    const fileEntityNames = new Set<string>();
+    visitEntities(sourceFile, new Map(), fileEntityNames);
+
+    // Map each entity to this file's content
+    for (const entityName of fileEntityNames) {
+      entityToFileMap.set(entityName, content);
     }
   }
 
   // Sort entities by dependency order
   const sortedEntityNames = sortEntitiesByDependency(entityRelations, entityNames);
-  
+
   // Reorder file contents based on dependency order
   const reorderedFileContents: string[] = [];
   const processedFiles = new Set<string>();
-  
+
   for (const entityName of sortedEntityNames) {
     const fileContent = entityToFileMap.get(entityName);
     if (fileContent && !processedFiles.has(fileContent)) {
@@ -383,9 +385,9 @@ export function generateEntityFileTypes(
       processedFiles.add(fileContent);
     }
   }
-  
+
   // Add any remaining files that weren't processed (shouldn't happen in normal cases)
-  for (const fileContent of fileContents) {
+  for (const fileContent of files.values()) {
     if (!processedFiles.has(fileContent)) {
       reorderedFileContents.push(fileContent);
     }
@@ -397,11 +399,22 @@ export function generateEntityFileTypes(
     .join("\n");
 
   // Wrap the generated types in a namespace schema with Collection type definition
-  return `export namespace schema {
+  const typesCode = `export namespace schema {
 export type Collection<T> = { [k: number]: T; };
 
 ${generatedTypes}
 }`;
+
+  return { typesCode, enumDefinitions };
+}
+
+// Collect enum declarations from this file
+function enumVisitor(node: ts.Node, filePath: string, enumDefinitions: Map<string, string>) {
+  if (ts.isEnumDeclaration(node) && node.name) {
+    const enumName = node.name.text;
+    enumDefinitions.set(enumName, filePath);
+  }
+  ts.forEachChild(node, (childNode) => enumVisitor(childNode, filePath, enumDefinitions));
 }
 
 /**
@@ -593,12 +606,12 @@ export function replaceEntityTypeWithPartialType(
     const primaryKeyInfo = entityPrimaryKeys.get(entityName);
     if (primaryKeyInfo) {
       // Check if this would create a circular reference
-      if (currentEntity && circularReferences.has(currentEntity) && 
-          circularReferences.get(currentEntity)!.has(entityName)) {
+      if (currentEntity && circularReferences.has(currentEntity) &&
+        circularReferences.get(currentEntity)!.has(entityName)) {
         // Break the circular reference by inlining the primary key object
         return createPrimaryKeyObjectType(primaryKeyInfo);
       }
-      
+
       return ts.factory.createTypeReferenceNode(
         ts.factory.createIdentifier(`schema.Partial${entityName}`),
         undefined,
@@ -644,7 +657,7 @@ function transformCollectionType(
       // Replace entity types in the generic arguments based on the usePartialTypes option
       const transformedTypeArgs = type.typeArguments.map((typeArg) => {
         return options.usePartialTypes ?
-          replaceEntityTypeWithPartialType(typeArg, entityPrimaryKeys, circularReferences, currentEntity) : 
+          replaceEntityTypeWithPartialType(typeArg, entityPrimaryKeys, circularReferences, currentEntity) :
           replaceEntityTypeWithPrimaryKey(typeArg, entityPrimaryKeys);
       });
       return ts.factory.createUnionTypeNode([
@@ -711,6 +724,7 @@ export function transformTypeNode(
   }
 }
 
+
 /**
  * Collect entity classes and their primary key info
  */
@@ -731,7 +745,7 @@ function visitEntities(
 
     if (hasEntityDecorator) {
       const className = node.name.text;
-      
+
       // Add to entity names set if provided
       if (entityNames) {
         entityNames.add(className);
