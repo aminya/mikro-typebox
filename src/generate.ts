@@ -80,7 +80,9 @@ export async function generateEntityValidator(
   const output: string = generateValidator(opts, typesCode);
 
   // postprocess enums to replace redefined enums with imports
-  const postprocessedCode = postprocessEnums(output, enumDefinitions);
+  const outputFile = opts.outputFile ?? "./src/entity-validators.ts";
+
+  const postprocessedCode = postprocessEnums(output, enumDefinitions, outputFile);
 
   // format the code
   const formattedCode = await formatCode(postprocessedCode);
@@ -92,8 +94,8 @@ export async function generateEntityValidator(
   // write the code to a file
   if (opts.write) {
     await writeFile(
-      opts.outputFile ?? "./src/entity-validators.ts",
-      formattedCode,
+      outputFile,
+      formattedCode
     );
   }
 

@@ -1,3 +1,4 @@
+import path from "path";
 import * as ts from "typescript";
 
 /**
@@ -6,10 +7,11 @@ import * as ts from "typescript";
  */
 export function postprocessEnums(
     code: string,
-    enumMap: Map<string, string>
+    enumMap: Map<string, string>,
+    outputPath: string,
 ): string {
     const sourceFile = ts.createSourceFile(
-        "temp.ts",
+        outputPath,
         code,
         ts.ScriptTarget.Latest,
         true,
@@ -63,7 +65,10 @@ export function postprocessEnums(
         if (!processedEnums.has(originalName)) {
             // Use the enum map to find the correct import path
             const enumPath = enumMap.get(originalName);
-            const importPath = enumPath ?? "./entities";
+            if (!enumPath) {
+                throw new Error(`Enum path not found for ${originalName} in ${outputPath}`);
+            }
+            const importPath = path.relative(path.dirname(outputPath), enumPath);
             imports.push(`import { ${originalName} as ${enumName} } from "${importPath}";`);
             processedEnums.add(originalName);
         }

@@ -22,14 +22,14 @@ export type UserStatus = Static<typeof UserStatus>;
 export const UserStatus = Type.Enum(EnumUserStatus);`;
 
     const enumMap = new Map([
-      ["UserRole", "./entities"],
-      ["UserStatus", "./entities"],
+      ["UserRole", "./src/entities/User.ts"],
+      ["UserStatus", "./src/entities/User.ts"],
     ]);
-    const result = postprocessEnums(input, enumMap);
+    const result = postprocessEnums(input, enumMap, "./src/entity-validators.ts");
 
     // Should add imports for the original enums
-    expect(result).toContain('import { UserRole as EnumUserRole } from "./entities";');
-    expect(result).toContain('import { UserStatus as EnumUserStatus } from "./entities";');
+    expect(result).toContain('import { UserRole as EnumUserRole } from "entities/User.ts";');
+    expect(result).toContain('import { UserStatus as EnumUserStatus } from "entities/User.ts";');
 
     // Should remove the redefined enum declarations
     expect(result).not.toContain('export enum EnumUserRole {');
@@ -50,8 +50,7 @@ export const UserStatus = Type.Enum(EnumUserStatus);`;
   name: string;
 };`;
 
-    const enumMap = new Map();
-    const result = postprocessEnums(input, new Map());
+    const result = postprocessEnums(input, new Map(), "./src/entity-validators.ts");
 
     // Should return the input unchanged
     expect(result).toBe(input);
@@ -77,12 +76,12 @@ export type Post = {
 };`;
 
     const enumMap = new Map([
-      ["UserRole", "./entities"],
+      ["UserRole", "./src/entities/User.ts"],
     ]);
-    const result = postprocessEnums(input, enumMap);
+    const result = postprocessEnums(input, enumMap, "./src/entity-validators.ts");
 
     // Should add import for the enum
-    expect(result).toContain('import { UserRole as EnumUserRole } from "./entities";');
+    expect(result).toContain('import { UserRole as EnumUserRole } from "entities/User.ts";');
 
     // Should remove the redefined enum declaration
     expect(result).not.toContain('export enum EnumUserRole {');
