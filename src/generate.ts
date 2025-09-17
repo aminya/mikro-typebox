@@ -2,6 +2,7 @@ import * as Codegen from "@sinclair/typebox-codegen";
 import { existsSync } from "fs";
 import { readdir, readFile, writeFile } from "fs/promises";
 import { generateEntityFileTypes } from "./prepare.js";
+import { postprocessEnums } from "./post.js";
 import path from "path";
 
 export const modelsToFunction = {
@@ -61,10 +62,10 @@ export async function generateEntityValidator(
   opts: GenerateEntityValidatorOptions,
 ): Promise<string> {
   // read the entity files
-  const entityContents = await readEntities(opts);
+  const filesMap = await readEntities(opts);
 
   // generate the entity types
-  const typesCode = generateEntityFileTypes(entityContents, {
+  const { typesCode, enumDefinitions } = generateEntityFileTypes(filesMap, {
     usePartialTypes:
       opts.partials ??
       (opts.targetValidationLibrary === undefined ||
@@ -78,8 +79,11 @@ export async function generateEntityValidator(
   // generate the validator via the types
   const output: string = generateValidator(opts, typesCode);
 
+  // postprocess enums to replace redefined enums with imports
+  const postprocessedCode = postprocessEnums(output, enumDefinitions);
+
   // format the code
-  const formattedCode = await formatCode(output);
+  const formattedCode = await formatCode(postprocessedCode);
 
   if (opts.verbose) {
     console.log("Output\n", formattedCode);
@@ -121,10 +125,14 @@ async function readEntities(opts: GenerateEntityValidatorOptions) {
     extensions.has(path.extname(entity)),
   );
 
-  // read the entity files
-  return await Promise.all(
-    entityFiles.map((entity) => readFile(`${entitiesDir}/${entity}`, "utf-8")),
-  );
+  // read the entity files and return a map of entity names to their contents
+  return new Map(await Promise.all(
+    entityFiles.map(async (entity): Promise<[string, string]> => {
+      const entityPath = `${entitiesDir}/${entity}`;
+      const content = await readFile(entityPath, "utf-8");
+      return [entity, content];
+    }),
+  ));
 }
 
 function generateValidator(

@@ -5,15 +5,14 @@ import { generateEntityFileTypes } from "../src/prepare.js";
 for (const folder of ["./test/test-entities/", "./test/test-entities-2/"]) {
     describe("Test Entities Circular Reference Detection", () => {
         it(`should detect and break circular references in ${folder}`, async () => {
-            // Read the test entity files
-            const userCode = await readFile(`${folder}/User.ts`, "utf-8");
-            const postCode = await readFile(`${folder}/Post.ts`, "utf-8");
-            const commentCode = await readFile(`${folder}/Comment.ts`, "utf-8");
-
-            const fileContents = [userCode, postCode, commentCode];
+            const fileContents = new Map([
+                ["User.ts", await readFile(`${folder}/User.ts`, "utf-8")],
+                ["Post.ts", await readFile(`${folder}/Post.ts`, "utf-8")],
+                ["Comment.ts", await readFile(`${folder}/Comment.ts`, "utf-8")],
+            ]);
 
             // Generate types with circular reference detection
-            const result = generateEntityFileTypes(fileContents, { usePartialTypes: true });
+            const result = generateEntityFileTypes(fileContents, { usePartialTypes: true }).typesCode;
 
             // Check that some circular references are broken by inlining primary key objects
             // The exact relations that get broken may vary based on the cycle detection algorithm
@@ -37,14 +36,14 @@ for (const folder of ["./test/test-entities/", "./test/test-entities-2/"]) {
 
         it("should handle test-entities with usePartialTypes: false", async () => {
             // Read the test entity files
-            const userCode = await readFile("./test/test-entities/User.ts", "utf-8");
-            const postCode = await readFile("./test/test-entities/Post.ts", "utf-8");
-            const commentCode = await readFile("./test/test-entities/Comment.ts", "utf-8");
-
-            const fileContents = [userCode, postCode, commentCode];
+            const fileContents = new Map([
+                ["User.ts", await readFile("./test/test-entities/User.ts", "utf-8")],
+                ["Post.ts", await readFile("./test/test-entities/Post.ts", "utf-8")],
+                ["Comment.ts", await readFile("./test/test-entities/Comment.ts", "utf-8")],
+            ]);
 
             // Generate types without partial types (should inline all entity references)
-            const result = generateEntityFileTypes(fileContents, { usePartialTypes: false });
+            const result = generateEntityFileTypes(fileContents, { usePartialTypes: false }).typesCode;
 
             // All entity references should be inlined to primary key objects
             expect(result).toContain('author: {');

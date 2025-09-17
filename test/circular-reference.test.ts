@@ -67,9 +67,9 @@ describe("Circular Reference Detection and Breaking", () => {
       `;
 
       const result = generateEntityFileTypes(
-        [userCode, postCode, commentCode],
+        new Map([["User.ts", userCode], ["Post.ts", postCode], ["Comment.ts", commentCode]]),
         { usePartialTypes: true },
-      );
+      ).typesCode;
 
       // Check that the result is wrapped in namespace schema
       expect(result).toContain("namespace schema {");
@@ -158,9 +158,9 @@ describe("Circular Reference Detection and Breaking", () => {
       `;
 
       const result = generateEntityFileTypes(
-        [userCode, postCode, commentCode],
+        new Map([["User.ts", userCode], ["Post.ts", postCode], ["Comment.ts", commentCode]]),
         { usePartialTypes: true },
-      );
+      ).typesCode;
 
       // The circular reference should be detected and broken
       // In this case, User -> Post -> Comment -> User creates a cycle
@@ -195,7 +195,7 @@ describe("Circular Reference Detection and Breaking", () => {
         }
       `;
 
-      const result = generateEntityFileTypes([userCode], { usePartialTypes: true });
+      const result = generateEntityFileTypes(new Map([["User.ts", userCode]]), { usePartialTypes: true }).typesCode;
 
       // Check that the result is wrapped in namespace schema
       expect(result).toContain("namespace schema {");
@@ -242,9 +242,9 @@ describe("Circular Reference Detection and Breaking", () => {
       `;
 
       const result = generateEntityFileTypes(
-        [userCode, postCode],
+        new Map([["User.ts", userCode], ["Post.ts", postCode]]),
         { usePartialTypes: false },
-      );
+      ).typesCode;
 
       // Check that the result is wrapped in namespace schema
       expect(result).toContain("namespace schema {");

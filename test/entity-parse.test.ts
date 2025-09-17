@@ -222,9 +222,9 @@ describe("entity-parse", () => {
       `;
 
       const result = generateEntityFileTypes(
-        [userCode, postCode, commentCode],
+        new Map([["User.ts", userCode], ["Post.ts", postCode], ["Comment.ts", commentCode]]),
         { usePartialTypes: true },
-      );
+      ).typesCode;
 
       // Check that the result is wrapped in namespace schema
       expect(result).toContain("namespace schema {");
@@ -256,7 +256,7 @@ describe("entity-parse", () => {
         }
       `;
 
-      const result = generateEntityFileTypes([code]);
+      const result = generateEntityFileTypes(new Map([["User.ts", code]])).typesCode;
 
       // Check that the result is wrapped in namespace schema
       expect(result).toContain("namespace schema {");
@@ -268,7 +268,7 @@ describe("entity-parse", () => {
     });
 
     it("should handle empty array", () => {
-      const result = generateEntityFileTypes([]);
+      const result = generateEntityFileTypes(new Map()).typesCode;
       expect(result).toContain("export namespace schema {");
       expect(result).toContain("export type Collection<T> = { [k: number]: T; };");
     });
@@ -304,9 +304,9 @@ describe("entity-parse", () => {
         }
       `;
 
-      const result = generateEntityFileTypes([userCode, postCode], {
+      const result = generateEntityFileTypes(new Map([["User.ts", userCode], ["Post.ts", postCode]]), {
         usePartialTypes: true,
-      });
+      }).typesCode;
 
       // Check that the result is wrapped in namespace schema
       expect(result).toContain("namespace schema {");

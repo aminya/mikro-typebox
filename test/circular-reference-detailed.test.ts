@@ -38,9 +38,9 @@ describe("Detailed Circular Reference Detection", () => {
     `;
 
     const result = generateEntityFileTypes(
-      [entityACode, entityBCode],
+      new Map([["EntityA.ts", entityACode], ["EntityB.ts", entityBCode]]),
       { usePartialTypes: true },
-    );
+    ).typesCode;
 
     // Check that the result is wrapped in namespace schema
     expect(result).toContain("namespace schema {");
@@ -113,9 +113,9 @@ describe("Detailed Circular Reference Detection", () => {
     `;
 
     const result = generateEntityFileTypes(
-      [entityACode, entityBCode, entityCCode],
+      new Map([["EntityA.ts", entityACode], ["EntityB.ts", entityBCode], ["EntityC.ts", entityCCode]]),
       { usePartialTypes: true },
-    );
+    ).typesCode;
 
     // Check that the result is wrapped in namespace schema
     expect(result).toContain("namespace schema {");
@@ -199,9 +199,9 @@ describe("Detailed Circular Reference Detection", () => {
     `;
 
     const result = generateEntityFileTypes(
-      [userCode, postCode, commentCode],
+      new Map([["User.ts", userCode], ["Post.ts", postCode], ["Comment.ts", commentCode]]),
       { usePartialTypes: true },
-    );
+    ).typesCode;
 
     // Check that the result is wrapped in namespace schema
     expect(result).toContain("namespace schema {");
