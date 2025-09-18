@@ -1,65 +1,61 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { generateEntityValidator, modelsToFunction } from "../src/generate.js";
-import { mkdir, writeFile, rm } from "fs/promises";
+import {
+  TestDirectoryManager,
+  createTestEntities,
+  cleanupTestFiles,
+  expectTypeBoxValidator,
+  expectZodValidator,
+  expectValibotValidator,
+  supportedValidationLibraries
+} from "./test-utils.js";
 import { existsSync } from "fs";
 
 describe("entity-validator", () => {
   const testEntitiesDir = "./test-entities-temp";
   const testOutputFile = "./test-output.ts";
+  const testDirManager = new TestDirectoryManager();
 
   beforeEach(async () => {
     // Create test entities directory
-    await mkdir(testEntitiesDir, { recursive: true });
+    await testDirManager.createTempDir();
 
     // Create sample entity files
-    await writeFile(
-      `${testEntitiesDir}/User.ts`,
-      `
-      import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
-
-      @Entity()
-      export class User {
-        @PrimaryKey()
-        id!: number;
-
-        @Property()
-        name!: string;
-
-        @Property({ nullable: true })
-        email?: string;
+    await createTestEntities(testEntitiesDir, [
+      {
+        filename: "User.ts",
+        config: {
+          name: "User",
+          primaryKey: { name: "id", type: "number" },
+          properties: [
+            { name: "name", type: "string", decorator: "Property" },
+            { name: "email", type: "string", decorator: "Property", options: "nullable: true" }
+          ],
+          relations: [],
+          imports: []
+        }
+      },
+      {
+        filename: "Post.ts",
+        config: {
+          name: "Post",
+          primaryKey: { name: "id", type: "string" },
+          properties: [
+            { name: "title", type: "string", decorator: "Property" }
+          ],
+          relations: [
+            { name: "author", type: "ManyToOne" as const, target: "User" }
+          ],
+          imports: []
+        }
       }
-    `,
-    );
-
-    await writeFile(
-      `${testEntitiesDir}/Post.ts`,
-      `
-      import { Entity, PrimaryKey, Property, ManyToOne } from "@mikro-orm/core";
-      import { User } from "./User.js";
-
-      @Entity()
-      export class Post {
-        @PrimaryKey()
-        id!: string;
-
-        @Property()
-        title!: string;
-
-        @ManyToOne(() => User)
-        author!: User;
-      }
-    `,
-    );
+    ]);
   });
 
   afterEach(async () => {
     // Clean up test files
-    if (existsSync(testEntitiesDir)) {
-      await rm(testEntitiesDir, { recursive: true, force: true });
-    }
-    if (existsSync(testOutputFile)) {
-      await rm(testOutputFile, { force: true });
-    }
+    await cleanupTestFiles(testEntitiesDir, testOutputFile);
+    await testDirManager.cleanup();
   });
 
   describe("generateEntityValidator", () => {
@@ -73,8 +69,8 @@ describe("entity-validator", () => {
         'import { Type, Static, TSchema } from "@sinclair/typebox"',
       );
       expect(result).toContain("export namespace schema {");
-      expect(result).toContain("export const User = Type.Object(");
-      expect(result).toContain("export const Post = Type.Object(");
+      expectTypeBoxValidator(result, "User");
+      expectTypeBoxValidator(result, "Post");
       expect(result).toContain("id: Type.Number()");
       expect(result).toContain("name: Type.String()");
       expect(result).toContain("title: Type.String()");
@@ -88,7 +84,7 @@ describe("entity-validator", () => {
       });
 
       expect(zodResult).toContain('import { z } from "zod"');
-      expect(zodResult).toContain("export const schema_User = z.object({");
+      expectZodValidator(zodResult, "User");
 
       const valibotResult = await generateEntityValidator({
         entitiesDir: testEntitiesDir,
@@ -97,7 +93,7 @@ describe("entity-validator", () => {
       });
 
       expect(valibotResult).toContain('import * as v from "valibot"');
-      expect(valibotResult).toContain("export const schema_User = v.object({");
+      expectValibotValidator(valibotResult, "User");
     });
 
     it("should write to file when write option is true", async () => {
@@ -158,11 +154,7 @@ describe("entity-validator", () => {
     });
 
     it("should handle all supported validation libraries", async () => {
-      const supportedLibraries = Object.keys(modelsToFunction) as Array<
-        keyof typeof modelsToFunction
-      >;
-
-      for (const library of supportedLibraries) {
+      for (const library of supportedValidationLibraries) {
         const result = await generateEntityValidator({
           entitiesDir: testEntitiesDir,
           targetValidationLibrary: library,
@@ -177,76 +169,51 @@ describe("entity-validator", () => {
 
     it("should handle entities with relationships correctly", async () => {
       // Add a more complex entity with relationships
-      await writeFile(
-        `${testEntitiesDir}/Comment.ts`,
-        `
-        import { Entity, PrimaryKey, Property, ManyToOne } from "@mikro-orm/core";
-        import { Post } from "./Post.js";
-        import { User } from "./User.js";
-
-        @Entity()
-        export class Comment {
-          @PrimaryKey()
-          id!: number;
-
-          @Property()
-          content!: string;
-
-          @ManyToOne(() => Post)
-          post!: Post;
-
-          @ManyToOne(() => User)
-          author!: User;
+      await createTestEntities(testEntitiesDir, [
+        {
+          filename: "Comment.ts",
+          config: {
+            name: "Comment",
+            primaryKey: { name: "id", type: "number" },
+            properties: [
+              { name: "content", type: "string", decorator: "Property" }
+            ],
+            relations: [
+              { name: "post", type: "ManyToOne" as const, target: "Post" },
+              { name: "author", type: "ManyToOne" as const, target: "User" }
+            ],
+            imports: []
+          }
         }
-      `,
-      );
+      ]);
 
       const result = await generateEntityValidator({
         entitiesDir: testEntitiesDir,
         write: false,
       });
 
-      expect(result).toContain("export const Comment = Type.Object(");
+      expectTypeBoxValidator(result, "Comment");
       expect(result).toContain("post: schema.PartialPost"); // Post entity
       expect(result).toContain("author: schema.PartialUser"); // User entity
     });
 
     it("should handle empty entities directory", async () => {
       // Create empty directory
-      const emptyDir = "./test-empty-entities";
-      await mkdir(emptyDir, { recursive: true });
+      const emptyDir = await testDirManager.createTempDir("test-empty-entities");
 
-      try {
-        const result = await generateEntityValidator({
-          entitiesDir: emptyDir,
-          write: false,
-        });
+      const result = await generateEntityValidator({
+        entitiesDir: emptyDir,
+        write: false,
+      });
 
-        expect(result).toBeDefined();
-        expect(typeof result).toBe("string");
-      } finally {
-        await rm(emptyDir, { recursive: true, force: true });
-      }
+      expect(result).toBeDefined();
+      expect(typeof result).toBe("string");
     });
   });
 
   describe("modelsToFunction", () => {
     it("should contain all expected validation libraries", () => {
-      const expectedLibraries = [
-        "arktype",
-        "effect",
-        "io-ts",
-        "javascript",
-        "json-schema",
-        "typebox",
-        "typescript",
-        "valibot",
-        "value",
-        "yup",
-        "zod",
-      ];
-
-      for (const library of expectedLibraries) {
+      for (const library of supportedValidationLibraries) {
         expect(library in modelsToFunction).toBe(true);
       }
     });

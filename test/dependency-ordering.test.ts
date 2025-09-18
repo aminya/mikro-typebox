@@ -1,20 +1,20 @@
 import { describe, it, expect } from "bun:test";
 import { readFile } from "fs/promises";
 import { generateEntityFileTypes } from "../src/prepare.js";
-import path from "path";
+import { 
+  readEntityFiles, 
+  testEntityFiles, 
+  expectNamespaceStructure,
+  expectEntityType,
+  expectPartialRelation,
+  expectInlinedRelation
+} from "./test-utils.js";
 
 describe("Dependency Ordering", () => {
   it("should order entities by dependency (least dependent first)", async () => {
     // Read the test entity files in a specific order that would cause issues
     // if dependency ordering wasn't working
-    const files = [
-      "./test/test-entities/Comment.ts",
-      "./test/test-entities/User.ts",
-      "./test/test-entities/Post.ts",
-    ]
-    const filesMap = new Map(await Promise.all(files.map(async (file) => {
-      return [path.basename(file), await readFile(file, "utf-8")] as [string, string];
-    })));
+    const filesMap = await readEntityFiles(testEntityFiles);
 
     // Generate types with dependency ordering
     const result = generateEntityFileTypes(filesMap, { usePartialTypes: true }).typesCode;
@@ -39,11 +39,11 @@ describe("Dependency Ordering", () => {
     expect(commentLineIndex).toBeLessThan(postLineIndex);
 
     // Verify the structure is correct
-    expect(result).toContain('export namespace schema {');
+    expectNamespaceStructure(result);
     expect(result).toContain('export type Collection<T> = { [k: number]: T; };');
-    expect(result).toContain('export type User = {');
-    expect(result).toContain('export type Post = {');
-    expect(result).toContain('export type Comment = {');
+    expectEntityType(result, "User");
+    expectEntityType(result, "Post");
+    expectEntityType(result, "Comment");
   });
 
   it("should handle entities with no dependencies correctly", async () => {
@@ -53,44 +53,30 @@ describe("Dependency Ordering", () => {
 
     const result = generateEntityFileTypes(fileContents, { usePartialTypes: true }).typesCode;
 
-    expect(result).toContain('export type User = {');
-    expect(result).toContain('export namespace schema {');
+    expectEntityType(result, "User");
+    expectNamespaceStructure(result);
   });
 
   it("should handle circular dependencies gracefully", async () => {
-    const files = [
-      "./test/test-entities/Comment.ts",
-      "./test/test-entities/User.ts",
-      "./test/test-entities/Post.ts",
-    ]
-    const filesMap = new Map(await Promise.all(files.map(async (file) => {
-      return [path.basename(file), await readFile(file, "utf-8")] as [string, string];
-    })));
+    const filesMap = await readEntityFiles(testEntityFiles);
 
     const result = generateEntityFileTypes(filesMap, { usePartialTypes: true }).typesCode;
 
     // Should still generate valid output even with circular dependencies
-    expect(result).toContain('export namespace schema {');
-    expect(result).toContain('export type User = {');
-    expect(result).toContain('export type Post = {');
-    expect(result).toContain('export type Comment = {');
+    expectNamespaceStructure(result);
+    expectEntityType(result, "User");
+    expectEntityType(result, "Post");
+    expectEntityType(result, "Comment");
 
     // Should contain partial type references for circular references
-    expect(result).toContain('author: schema.PartialUser');
-    expect(result).toContain('post: schema.PartialPost');
+    expectPartialRelation(result, "author", "User");
+    expectPartialRelation(result, "post", "Post");
   });
 
   it("should ensure schema references work with namespace approach", async () => {
     // This test verifies that the dependency ordering works with the schema namespace approach
     // which allows forward references within the namespace
-    const files = [
-      "./test/test-entities/Comment.ts",
-      "./test/test-entities/User.ts",
-      "./test/test-entities/Post.ts",
-    ]
-    const filesMap = new Map(await Promise.all(files.map(async (file) => {
-      return [path.basename(file), await readFile(file, "utf-8")] as [string, string];
-    })));
+    const filesMap = await readEntityFiles(testEntityFiles);
 
     // Process in worst-case order: Comment first (depends on Post and User)
     const result = generateEntityFileTypes(filesMap, { usePartialTypes: true }).typesCode;
@@ -107,7 +93,7 @@ describe("Dependency Ordering", () => {
 
     // Verify that all schema references are within the namespace
     const namespaceStart = lines.findIndex(line => line.includes('export namespace schema {'));
-    const namespaceEnd = lines.findLastIndex(line => line.includes('}'));
+    const namespaceEnd = lines.length - 1 - lines.slice().reverse().findIndex(line => line.includes('}'));
 
     expect(namespaceStart).toBeGreaterThan(-1);
     expect(namespaceEnd).toBeGreaterThan(namespaceStart);
@@ -136,14 +122,7 @@ describe("Dependency Ordering", () => {
   });
 
   it("should work with different file input orders", async () => {
-    const files = [
-      "./test/test-entities/Comment.ts",
-      "./test/test-entities/User.ts",
-      "./test/test-entities/Post.ts",
-    ]
-    const filesMap = new Map(await Promise.all(files.map(async (file) => {
-      return [path.basename(file), await readFile(file, "utf-8")] as [string, string];
-    })));
+    const filesMap = await readEntityFiles(testEntityFiles);
 
     // Test different input orders - all should produce the same dependency-ordered output
     const orders = [
@@ -155,8 +134,7 @@ describe("Dependency Ordering", () => {
     const results = orders.map(order => {
       const fileContents = new Map(order.map(file => [file, filesMap.get(file)!]));
       return generateEntityFileTypes(fileContents, { usePartialTypes: true }).typesCode;
-    }
-    );
+    });
 
     // All results should have the same entity ordering
     for (let i = 1; i < results.length; i++) {

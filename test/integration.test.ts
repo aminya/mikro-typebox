@@ -1,110 +1,88 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { generateEntityValidator } from "../src/generate.js";
 import { generateEntityFileTypes } from "../src/prepare.js";
-import { mkdir, writeFile, rm } from "fs/promises";
-import { existsSync } from "fs";
+import {
+  TestDirectoryManager,
+  createTestEntities,
+  cleanupTestFiles,
+  expectNamespaceStructure,
+  expectEntityType,
+  expectPartialType,
+  expectTypeBoxValidator,
+  expectZodValidator,
+  expectValibotValidator,
+  expectNoDecorators,
+  expectNoImports,
+  supportedValidationLibraries
+} from "./test-utils.js";
 
 describe("Integration Tests", () => {
   const testEntitiesDir = "./test-integration-entities";
   const testOutputFile = "./test-integration-output.ts";
+  const testDirManager = new TestDirectoryManager();
 
   beforeEach(async () => {
     // Create test entities directory
-    await mkdir(testEntitiesDir, { recursive: true });
+    await testDirManager.createTempDir();
 
     // Create a complete set of related entities
-    await writeFile(
-      `${testEntitiesDir}/User.ts`,
-      `
-      import { Entity, PrimaryKey, Property, Collection, OneToMany } from "@mikro-orm/core";
-      import { Post } from "./Post.js";
-
-      @Entity()
-      export class User {
-        @PrimaryKey()
-        id!: number;
-
-        @Property()
-        name!: string;
-
-        @Property()
-        email!: string;
-
-        @Property({ nullable: true })
-        age?: number;
-
-        @OneToMany(() => Post, post => post.author)
-        posts = new Collection<Post>(this);
+    await createTestEntities(testEntitiesDir, [
+      {
+        filename: "User.ts",
+        config: {
+          name: "User",
+          primaryKey: { name: "id", type: "number" },
+          properties: [
+            { name: "name", type: "string", decorator: "Property" },
+            { name: "email", type: "string", decorator: "Property" },
+            { name: "age", type: "number", decorator: "Property", options: "nullable: true" }
+          ],
+          relations: [
+            { name: "posts", type: "OneToMany" as const, target: "Post", inverseSide: "post => post.author" }
+          ],
+          imports: []
       }
-    `,
-    );
-
-    await writeFile(
-      `${testEntitiesDir}/Post.ts`,
-      `
-      import { Entity, PrimaryKey, Property, ManyToOne, Collection, OneToMany } from "@mikro-orm/core";
-      import { User } from "./User.js";
-      import { Comment } from "./Comment.js";
-
-      @Entity()
-      export class Post {
-        @PrimaryKey()
-        id!: string;
-
-        @Property()
-        title!: string;
-
-        @Property({ type: "text" })
-        content!: string;
-
-        @Property()
-        publishedAt!: Date;
-
-        @ManyToOne(() => User)
-        author!: User;
-
-        @OneToMany(() => Comment, comment => comment.post)
-        comments = new Collection<Comment>(this);
+      },
+      {
+        filename: "Post.ts",
+        config: {
+          name: "Post",
+          primaryKey: { name: "id", type: "string" },
+          properties: [
+            { name: "title", type: "string", decorator: "Property" },
+            { name: "content", type: "string", decorator: "Property", options: 'type: "text"' },
+            { name: "publishedAt", type: "Date", decorator: "Property" }
+          ],
+          relations: [
+            { name: "author", type: "ManyToOne" as const, target: "User" },
+            { name: "comments", type: "OneToMany" as const, target: "Comment", inverseSide: "comment => comment.post" }
+          ],
+          imports: []
+        }
+      },
+      {
+        filename: "Comment.ts",
+        config: {
+          name: "Comment",
+          primaryKey: { name: "id", type: "number" },
+          properties: [
+            { name: "content", type: "string", decorator: "Property" },
+            { name: "createdAt", type: "Date", decorator: "Property" }
+          ],
+          relations: [
+            { name: "post", type: "ManyToOne" as const, target: "Post" },
+            { name: "author", type: "ManyToOne" as const, target: "User" }
+          ],
+          imports: []
       }
-    `,
-    );
-
-    await writeFile(
-      `${testEntitiesDir}/Comment.ts`,
-      `
-      import { Entity, PrimaryKey, Property, ManyToOne } from "@mikro-orm/core";
-      import { Post } from "./Post.js";
-      import { User } from "./User.js";
-
-      @Entity()
-      export class Comment {
-        @PrimaryKey()
-        id!: number;
-
-        @Property()
-        content!: string;
-
-        @Property()
-        createdAt!: Date;
-
-        @ManyToOne(() => Post)
-        post!: Post;
-
-        @ManyToOne(() => User)
-        author!: User;
       }
-    `,
-    );
+    ]);
   });
 
   afterEach(async () => {
     // Clean up test files
-    if (existsSync(testEntitiesDir)) {
-      await rm(testEntitiesDir, { recursive: true, force: true });
-    }
-    if (existsSync(testOutputFile)) {
-      await rm(testOutputFile, { force: true });
-    }
+    await cleanupTestFiles(testEntitiesDir, testOutputFile);
+    await testDirManager.cleanup();
   });
 
   describe("Complete workflow with TypeBox", () => {
@@ -119,10 +97,10 @@ describe("Integration Tests", () => {
       expect(result).toContain(
         'import { Type, Static, TSchema } from "@sinclair/typebox"',
       );
-      expect(result).toContain("export namespace schema {");
+      expectNamespaceStructure(result);
 
       // Check User entity
-      expect(result).toContain("export const User = Type.Object(");
+      expectTypeBoxValidator(result, "User");
       expect(result).toContain("id: Type.Number()");
       expect(result).toContain("name: Type.String()");
       expect(result).toContain("email: Type.String()");
@@ -130,7 +108,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("posts: Type.Union(["); // Collection with partial entity type or inlined object
 
       // Check Post entity
-      expect(result).toContain("export const Post = Type.Object(");
+      expectTypeBoxValidator(result, "Post");
       expect(result).toContain("title: Type.String()");
       expect(result).toContain("content: Type.String()");
       expect(result).toContain("publishedAt: Type.Date()");
@@ -138,7 +116,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("comments: Type.Union(["); // Collection with partial entity type or inlined object
 
       // Check Comment entity
-      expect(result).toContain("export const Comment = Type.Object(");
+      expectTypeBoxValidator(result, "Comment");
       expect(result).toContain("content: Type.String()");
       expect(result).toContain("createdAt: Type.Date()");
       expect(result).toContain("post: schema.PartialPost"); // Post entity with partial type
@@ -161,10 +139,10 @@ describe("Integration Tests", () => {
       expect(existsSync(testOutputFile)).toBe(true);
 
       const content = await Bun.file(testOutputFile).text();
-      expect(content).toContain("export namespace schema {");
-      expect(content).toContain("export const User = Type.Object(");
-      expect(content).toContain("export const Post = Type.Object(");
-      expect(content).toContain("export const Comment = Type.Object(");
+      expectNamespaceStructure(content);
+      expectTypeBoxValidator(content, "User");
+      expectTypeBoxValidator(content, "Post");
+      expectTypeBoxValidator(content, "Comment");
     });
   });
 
@@ -180,7 +158,7 @@ describe("Integration Tests", () => {
       expect(result).toContain('import { z } from "zod"');
 
       // Check User entity
-      expect(result).toContain("export const schema_User = z.object({");
+      expectZodValidator(result, "User");
       expect(result).toContain("id: z.number()");
       expect(result).toContain("name: z.string()");
       expect(result).toContain("email: z.string()");
@@ -188,7 +166,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("posts: z.union(["); // Collection with inline object type
 
       // Check Post entity
-      expect(result).toContain("export const schema_Post = z.object({");
+      expectZodValidator(result, "Post");
       expect(result).toContain("title: z.string()");
       expect(result).toContain("content: z.string()");
       expect(result).toContain("publishedAt: z.date()");
@@ -197,7 +175,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("comments: z.union(["); // Collection with inline object type
 
       // Check Comment entity
-      expect(result).toContain("export const schema_Comment = z.object({");
+      expectZodValidator(result, "Comment");
       expect(result).toContain("content: z.string()");
       expect(result).toContain("createdAt: z.date()");
       expect(result).toContain("post: z.object({"); // Post entity with inline object type
@@ -217,7 +195,7 @@ describe("Integration Tests", () => {
       expect(result).toContain('import * as v from "valibot"');
 
       // Check User entity
-      expect(result).toContain("export const schema_User = v.object({");
+      expectValibotValidator(result, "User");
       expect(result).toContain("id: v.number()");
       expect(result).toContain("name: v.string()");
       expect(result).toContain("email: v.string()");
@@ -225,7 +203,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("posts: v.union(["); // Collection with inline object type
 
       // Check Post entity
-      expect(result).toContain("export const schema_Post = v.object({");
+      expectValibotValidator(result, "Post");
       expect(result).toContain("title: v.string()");
       expect(result).toContain("content: v.string()");
       expect(result).toContain("publishedAt: v.date()");
@@ -234,7 +212,7 @@ describe("Integration Tests", () => {
       expect(result).toContain("comments: v.union(["); // Collection with inline object type
 
       // Check Comment entity
-      expect(result).toContain("export const schema_Comment = v.object({");
+      expectValibotValidator(result, "Comment");
       expect(result).toContain("content: v.string()");
       expect(result).toContain("createdAt: v.date()");
       expect(result).toContain("post: v.object({"); // Post entity with inline object type
@@ -255,33 +233,28 @@ describe("Integration Tests", () => {
       }).typesCode;
 
       // Check that the result is wrapped in namespace schema
-      expect(result).toContain("namespace schema {");
-      expect(result).toContain("}");
+      expectNamespaceStructure(result);
 
       // Check that entity references are replaced with inline object types containing primary key
-      expect(result).toContain("export type User = {");
+      expectEntityType(result, "User");
       expect(result).toContain("posts: Collection<"); // Collection with partial entity type or inlined object
 
-      expect(result).toContain("export type Post = {");
+      expectEntityType(result, "Post");
       expect(result).toContain("author: "); // User entity with partial type or inlined object
       expect(result).toContain("comments: Collection<"); // Collection with partial entity type or inlined object
 
-      expect(result).toContain("export type Comment = {");
+      expectEntityType(result, "Comment");
       expect(result).toContain("post: "); // Post entity with partial type or inlined object
       expect(result).toContain("author: "); // User entity with partial type or inlined object
 
       // Check that partial types are generated
-      expect(result).toContain("export type PartialUser = {");
-      expect(result).toContain("export type PartialPost = {");
-      expect(result).toContain("export type PartialComment = {");
+      expectPartialType(result, "User");
+      expectPartialType(result, "Post");
+      expectPartialType(result, "Comment");
 
       // Check that imports and decorators are removed
-      expect(result).not.toContain("import {");
-      expect(result).not.toContain("@Entity()");
-      expect(result).not.toContain("@PrimaryKey()");
-      expect(result).not.toContain("@Property()");
-      expect(result).not.toContain("@ManyToOne()");
-      expect(result).not.toContain("@OneToMany()");
+      expectNoImports(result);
+      expectNoDecorators(result);
     });
   });
 
@@ -296,10 +269,8 @@ describe("Integration Tests", () => {
     });
 
     it("should handle empty entities directory", async () => {
-      const emptyDir = "./test-empty-integration-entities";
-      await mkdir(emptyDir, { recursive: true });
+      const emptyDir = await testDirManager.createTempDir("test-empty-integration-entities");
 
-      try {
         const result = await generateEntityValidator({
           entitiesDir: emptyDir,
           write: false,
@@ -307,9 +278,6 @@ describe("Integration Tests", () => {
 
         expect(result).toBeDefined();
         expect(typeof result).toBe("string");
-      } finally {
-        await rm(emptyDir, { recursive: true, force: true });
-      }
     });
 
     it("should handle invalid target validation library", async () => {
@@ -359,3 +327,7 @@ describe("Integration Tests", () => {
     }
   });
 });
+function existsSync(testOutputFile: string): any {
+  throw new Error("Function not implemented.");
+}
+

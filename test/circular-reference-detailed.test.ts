@@ -1,41 +1,37 @@
 import { describe, it, expect } from "bun:test";
 import { generateEntityFileTypes } from "../src/prepare.js";
+import {
+  buildEntityCode,
+  expectNamespaceStructure,
+  expectEntityType,
+  expectPartialType,
+  expectInlinedRelation
+} from "./test-utils.js";
 
 describe("Detailed Circular Reference Detection", () => {
   it("should break circular references in a simple A->B->A cycle", () => {
-    const entityACode = `
-      import { Entity, PrimaryKey, Property, ManyToOne } from "@mikro-orm/core";
-      import { EntityB } from "./EntityB.js";
-
-      @Entity()
-      export class EntityA {
-        @PrimaryKey()
-        id!: number;
-
-        @Property()
-        name!: string;
-
-        @ManyToOne(() => EntityB)
-        relatedB!: EntityB;
-      }
-    `;
-
-    const entityBCode = `
-      import { Entity, PrimaryKey, Property, ManyToOne } from "@mikro-orm/core";
-      import { EntityA } from "./EntityA.js";
-
-      @Entity()
-      export class EntityB {
-        @PrimaryKey()
-        id!: string;
-
-        @Property()
-        title!: string;
-
-        @ManyToOne(() => EntityA)
-        relatedA!: EntityA;
-      }
-    `;
+    const entityACode = buildEntityCode({
+      name: "EntityA",
+      primaryKey: { name: "id", type: "number" },
+      properties: [
+        { name: "name", type: "string", decorator: "Property" }
+      ],
+      relations: [
+        { name: "relatedB", type: "ManyToOne" as const, target: "EntityB" }
+      ],
+      imports: []
+    });
+    const entityBCode = buildEntityCode({
+      name: "EntityB",
+      primaryKey: { name: "id", type: "string" },
+      properties: [
+        { name: "title", type: "string", decorator: "Property" }
+      ],
+      relations: [
+        { name: "relatedA", type: "ManyToOne" as const, target: "EntityA" }
+      ],
+      imports: []
+    });
 
     const result = generateEntityFileTypes(
       new Map([["EntityA.ts", entityACode], ["EntityB.ts", entityBCode]]),
@@ -43,16 +39,15 @@ describe("Detailed Circular Reference Detection", () => {
     ).typesCode;
 
     // Check that the result is wrapped in namespace schema
-    expect(result).toContain("namespace schema {");
-    expect(result).toContain("}");
+    expectNamespaceStructure(result);
 
     // Check that entity types are generated
-    expect(result).toContain("export type EntityA = {");
-    expect(result).toContain("export type EntityB = {");
+    expectEntityType(result, "EntityA");
+    expectEntityType(result, "EntityB");
 
     // Check that partial types are generated
-    expect(result).toContain("export type PartialEntityA = {");
-    expect(result).toContain("export type PartialEntityB = {");
+    expectPartialType(result, "EntityA");
+    expectPartialType(result, "EntityB");
 
     // The circular reference should be broken by inlining primary key objects
     // At least one of the relations should be inlined instead of using partial types
@@ -61,56 +56,39 @@ describe("Detailed Circular Reference Detection", () => {
   });
 
   it("should handle a three-way circular reference A->B->C->A", () => {
-    const entityACode = `
-      import { Entity, PrimaryKey, Property, ManyToOne } from "@mikro-orm/core";
-      import { EntityB } from "./EntityB.js";
-
-      @Entity()
-      export class EntityA {
-        @PrimaryKey()
-        id!: number;
-
-        @Property()
-        name!: string;
-
-        @ManyToOne(() => EntityB)
-        relatedB!: EntityB;
-      }
-    `;
-
-    const entityBCode = `
-      import { Entity, PrimaryKey, Property, ManyToOne } from "@mikro-orm/core";
-      import { EntityC } from "./EntityC.js";
-
-      @Entity()
-      export class EntityB {
-        @PrimaryKey()
-        id!: string;
-
-        @Property()
-        title!: string;
-
-        @ManyToOne(() => EntityC)
-        relatedC!: EntityC;
-      }
-    `;
-
-    const entityCCode = `
-      import { Entity, PrimaryKey, Property, ManyToOne } from "@mikro-orm/core";
-      import { EntityA } from "./EntityA.js";
-
-      @Entity()
-      export class EntityC {
-        @PrimaryKey()
-        id!: number;
-
-        @Property()
-        description!: string;
-
-        @ManyToOne(() => EntityA)
-        relatedA!: EntityA;
-      }
-    `;
+    const entityACode = buildEntityCode({
+      name: "EntityA",
+      primaryKey: { name: "id", type: "number" },
+      properties: [
+        { name: "name", type: "string", decorator: "Property" }
+      ],
+      relations: [
+        { name: "relatedB", type: "ManyToOne" as const, target: "EntityB" }
+      ],
+      imports: []
+    });
+    const entityBCode = buildEntityCode({
+      name: "EntityB",
+      primaryKey: { name: "id", type: "string" },
+      properties: [
+        { name: "title", type: "string", decorator: "Property" }
+      ],
+      relations: [
+        { name: "relatedC", type: "ManyToOne" as const, target: "EntityC" }
+      ],
+      imports: []
+    });
+    const entityCCode = buildEntityCode({
+      name: "EntityC",
+      primaryKey: { name: "id", type: "number" },
+      properties: [
+        { name: "description", type: "string", decorator: "Property" }
+      ],
+      relations: [
+        { name: "relatedA", type: "ManyToOne" as const, target: "EntityA" }
+      ],
+      imports: []
+    });
 
     const result = generateEntityFileTypes(
       new Map([["EntityA.ts", entityACode], ["EntityB.ts", entityBCode], ["EntityC.ts", entityCCode]]),
@@ -118,18 +96,17 @@ describe("Detailed Circular Reference Detection", () => {
     ).typesCode;
 
     // Check that the result is wrapped in namespace schema
-    expect(result).toContain("namespace schema {");
-    expect(result).toContain("}");
+    expectNamespaceStructure(result);
 
     // Check that all entity types are generated
-    expect(result).toContain("export type EntityA = {");
-    expect(result).toContain("export type EntityB = {");
-    expect(result).toContain("export type EntityC = {");
+    expectEntityType(result, "EntityA");
+    expectEntityType(result, "EntityB");
+    expectEntityType(result, "EntityC");
 
     // Check that partial types are generated
-    expect(result).toContain("export type PartialEntityA = {");
-    expect(result).toContain("export type PartialEntityB = {");
-    expect(result).toContain("export type PartialEntityC = {");
+    expectPartialType(result, "EntityA");
+    expectPartialType(result, "EntityB");
+    expectPartialType(result, "EntityC");
 
     // The circular reference should be broken by inlining at least one primary key object
     const hasInlinedRelation = result.includes("relatedB: {") || 
@@ -139,83 +116,55 @@ describe("Detailed Circular Reference Detection", () => {
   });
 
   it("should handle circular references with collections", () => {
-    const userCode = `
-      import { Entity, PrimaryKey, Property, Collection, OneToMany } from "@mikro-orm/core";
-      import { Post } from "./Post.js";
-
-      @Entity()
-      export class User {
-        @PrimaryKey()
-        id!: number;
-
-        @Property()
-        name!: string;
-
-        @OneToMany(() => Post, post => post.author)
-        posts = new Collection<Post>(this);
-      }
-    `;
-
-    const postCode = `
-      import { Entity, PrimaryKey, Property, ManyToOne, Collection, OneToMany } from "@mikro-orm/core";
-      import { User } from "./User.js";
-      import { Comment } from "./Comment.js";
-
-      @Entity()
-      export class Post {
-        @PrimaryKey()
-        id!: string;
-
-        @Property()
-        title!: string;
-
-        @ManyToOne(() => User)
-        author!: User;
-
-        @OneToMany(() => Comment, comment => comment.post)
-        comments = new Collection<Comment>(this);
-      }
-    `;
-
-    const commentCode = `
-      import { Entity, PrimaryKey, Property, ManyToOne } from "@mikro-orm/core";
-      import { Post } from "./Post.js";
-      import { User } from "./User.js";
-
-      @Entity()
-      export class Comment {
-        @PrimaryKey()
-        id!: number;
-
-        @Property()
-        content!: string;
-
-        @ManyToOne(() => Post)
-        post!: Post;
-
-        @ManyToOne(() => User)
-        author!: User;
-      }
-    `;
-
     const result = generateEntityFileTypes(
-      new Map([["User.ts", userCode], ["Post.ts", postCode], ["Comment.ts", commentCode]]),
-      { usePartialTypes: true },
+      new Map([["User.ts", buildEntityCode({
+        name: "User",
+        primaryKey: { name: "id", type: "number" },
+        properties: [
+          { name: "name", type: "string", decorator: "Property" }
+        ],
+        relations: [
+          { name: "posts", type: "OneToMany" as const, target: "Post", inverseSide: "post => post.author" }
+        ],
+        imports: []
+      })], ["Post.ts", buildEntityCode({
+          name: "Post",
+          primaryKey: { name: "id", type: "string" },
+          properties: [
+            { name: "title", type: "string", decorator: "Property" }
+          ],
+          relations: [
+            { name: "author", type: "ManyToOne" as const, target: "User" },
+            { name: "comments", type: "OneToMany" as const, target: "Comment", inverseSide: "comment => comment.post" }
+          ],
+          imports: []
+        })], ["Comment.ts", buildEntityCode({
+          name: "Comment",
+          primaryKey: { name: "id", type: "number" },
+          properties: [
+            { name: "content", type: "string", decorator: "Property" }
+          ],
+          relations: [
+            { name: "post", type: "ManyToOne" as const, target: "Post" },
+            { name: "author", type: "ManyToOne" as const, target: "User" }
+          ],
+          imports: []
+        })]]),
+      { usePartialTypes: true }
     ).typesCode;
 
     // Check that the result is wrapped in namespace schema
-    expect(result).toContain("namespace schema {");
-    expect(result).toContain("}");
+    expectNamespaceStructure(result);
 
     // Check that all entity types are generated
-    expect(result).toContain("export type User = {");
-    expect(result).toContain("export type Post = {");
-    expect(result).toContain("export type Comment = {");
+    expectEntityType(result, "User");
+    expectEntityType(result, "Post");
+    expectEntityType(result, "Comment");
 
     // Check that partial types are generated
-    expect(result).toContain("export type PartialUser = {");
-    expect(result).toContain("export type PartialPost = {");
-    expect(result).toContain("export type PartialComment = {");
+    expectPartialType(result, "User");
+    expectPartialType(result, "Post");
+    expectPartialType(result, "Comment");
 
     // Check that collections are properly handled
     expect(result).toContain("posts: Collection<");

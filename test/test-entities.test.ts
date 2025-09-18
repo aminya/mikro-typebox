@@ -1,6 +1,15 @@
 import { describe, it, expect } from "bun:test";
 import { readFile } from "fs/promises";
 import { generateEntityFileTypes } from "../src/prepare.js";
+import { 
+  readEntityFiles, 
+  testEntityFiles, 
+  expectNamespaceStructure,
+  expectEntityType,
+  expectInlinedRelation,
+  runCLITest,
+  createCLICommand
+} from "./test-utils.js";
 
 for (const folder of ["./test/test-entities/", "./test/test-entities-2/"]) {
     describe("Test Entities Circular Reference Detection", () => {
@@ -16,22 +25,17 @@ for (const folder of ["./test/test-entities/", "./test/test-entities-2/"]) {
 
             // Check that some circular references are broken by inlining primary key objects
             // The exact relations that get broken may vary based on the cycle detection algorithm
-            expect(result).toContain('author: {');
-            expect(result).toContain('id: number;');
-            expect(result).toContain('}');
-
-            expect(result).toContain('post: {');
-            expect(result).toContain('id: string;');
-            expect(result).toContain('}');
+            expectInlinedRelation(result, "author", "number");
+            expectInlinedRelation(result, "post", "string");
 
             // Some relations may still use partial types if they don't complete a cycle
             expect(result).toContain('schema.Partial');
 
             // Verify the structure is correct
-            expect(result).toContain('export namespace schema {');
-            expect(result).toContain('export type User = {');
-            expect(result).toContain('export type Post = {');
-            expect(result).toContain('export type Comment = {');
+            expectNamespaceStructure(result);
+            expectEntityType(result, "User");
+            expectEntityType(result, "Post");
+            expectEntityType(result, "Comment");
         });
 
         it("should handle test-entities with usePartialTypes: false", async () => {
@@ -46,13 +50,8 @@ for (const folder of ["./test/test-entities/", "./test/test-entities-2/"]) {
             const result = generateEntityFileTypes(fileContents, { usePartialTypes: false }).typesCode;
 
             // All entity references should be inlined to primary key objects
-            expect(result).toContain('author: {');
-            expect(result).toContain('id: number;');
-            expect(result).toContain('}');
-
-            expect(result).toContain('post: {');
-            expect(result).toContain('id: string;');
-            expect(result).toContain('}');
+            expectInlinedRelation(result, "author", "number");
+            expectInlinedRelation(result, "post", "string");
 
             // Collections should also be inlined
             expect(result).toContain('posts: Collection<{');
@@ -62,24 +61,14 @@ for (const folder of ["./test/test-entities/", "./test/test-entities-2/"]) {
         it("should work with CLI command for test-entities", async () => {
             // This test verifies that the CLI command works correctly with the updated test-entities
             // We'll test by running the CLI command and checking that it produces valid output
-            const { spawn } = await import("bun");
-
-            const proc = spawn([
-                "bun",
-                "./src/cli.ts",
-                "generate",
-                "-e",
-                "./test/test-entities/",
-                "--target",
-                "typebox",
-                "--no-write"
-            ]);
-
-            const exitCode = await proc.exited;
-            expect(exitCode).toBe(0);
-
-            // The command should succeed without errors
-            // Note: We can't easily capture stdout with bun spawn, but exit code 0 indicates success
+            await runCLITest({
+                command: createCLICommand("generate", {
+                    entities: "./test/test-entities/",
+                    target: "typebox",
+                    noWrite: true
+                }),
+                expectedExitCode: 0
+            });
         });
     });
 

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import { postprocessEnums } from "../src/post.js";
+import { expectNamespaceStructure } from "./test-utils.js";
 
 describe("Enum Postprocessing", () => {
   it("should replace redefined enums with imports", () => {
