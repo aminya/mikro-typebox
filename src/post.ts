@@ -76,7 +76,7 @@ export function postprocessEnums(
             } else if (enumPath.endsWith(".cts")) {
                 enumPath = `${enumPath.slice(0, -4)}.cjs`;
             }
-            let importPath = path.relative(path.dirname(outputPath), enumPath);
+            let importPath = path.relative(path.dirname(outputPath), enumPath).replace(/\\/g, "/");
             if (!importPath.startsWith(".")) {
                 importPath = `./${importPath}`;
             }
