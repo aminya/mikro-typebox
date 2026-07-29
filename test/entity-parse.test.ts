@@ -230,11 +230,13 @@ describe("entity-parse", () => {
       expect(result).toContain("namespace schema {");
       expect(result).toContain("}");
 
-      // Check that entity references are replaced with partial types or broken by circular reference detection
-      expect(result).toContain("author: "); // User entity with partial type or inlined object
-      expect(result).toContain("post: "); // Post entity with partial type or inlined object
-      expect(result).toContain("posts: Collection<schema.PartialPost> | Array<schema.PartialPost>"); // Collection with partial entity type
-      expect(result).toContain("comments: Collection<schema.PartialComment> | Array<schema.PartialComment>"); // Collection with partial entity type
+      // Check that entity references are replaced with partial types
+      expect(result).toContain("author: schema.PartialUser"); // User entity with partial type
+      expect(result).toContain("post: schema.PartialPost"); // Post entity with partial type
+
+      // The collections close a cycle, so they are broken by inlining a primary key object
+      expect(result).toContain("posts: Collection<{");
+      expect(result).toContain("comments: Collection<{");
 
       // Check that partial types are generated
       expect(result).toContain("export type PartialUser = {");

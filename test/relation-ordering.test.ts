@@ -22,6 +22,20 @@ async function readRelationEntities(): Promise<Map<string, string>> {
 }
 
 /**
+ * Every ordering of the given items
+ */
+function permutations<T>(items: T[]): T[][] {
+  if (items.length <= 1) {
+    return [items];
+  }
+  return items.flatMap((item, index) =>
+    permutations([...items.slice(0, index), ...items.slice(index + 1)]).map(
+      (rest) => [item, ...rest],
+    ),
+  );
+}
+
+/**
  * Index of the line declaring the given entity type
  */
 function declarationIndex(lines: string[], entityName: string): number {
@@ -76,6 +90,33 @@ describe("Relation ordering", () => {
       ).typesCode,
     );
 
+    for (const result of results) {
+      expect(result).toBe(results[0]!);
+    }
+  });
+
+  it("breaks the same cycles regardless of the input file order", async () => {
+    // `readdir` is not sorted on every platform, so entities can reach the generator in
+    // any order. Which edge of a cycle gets broken must not depend on that order.
+    const names = ["User.ts", "Post.ts", "Comment.ts"];
+    const sources = new Map(
+      await Promise.all(
+        names.map(async (name): Promise<[string, string]> => [
+          name,
+          await readFile(path.join("./test/test-entities", name), "utf-8"),
+        ]),
+      ),
+    );
+
+    const results = permutations(names).map(
+      (order) =>
+        generateEntityFileTypes(
+          new Map(order.map((name) => [name, sources.get(name)!])),
+          { usePartialTypes: true },
+        ).typesCode,
+    );
+
+    expect(results).toHaveLength(6);
     for (const result of results) {
       expect(result).toBe(results[0]!);
     }

@@ -151,8 +151,13 @@ function detectCircularReferences(
     visited.add(entityName);
     recursionStack.add(entityName);
 
-    // Find all relations from this entity
-    const relations = entityRelations.filter(rel => rel.from === entityName);
+    // Find all relations from this entity.
+    // Which edges end up being reported as circular depends on the traversal order,
+    // so the relations are walked by name to keep the result independent of the
+    // order the entity files happened to be read in.
+    const relations = entityRelations
+      .filter((rel) => rel.from === entityName)
+      .sort((a, b) => a.to.localeCompare(b.to));
     for (const relation of relations) {
       if (entityNames.has(relation.to)) {
         dfs(relation.to, [...path, entityName]);
@@ -162,8 +167,12 @@ function detectCircularReferences(
     recursionStack.delete(entityName);
   }
 
-  // Check for cycles starting from each entity
-  for (const entityName of entityNames) {
+  // Check for cycles starting from each entity, again by name so that the
+  // traversal does not depend on the order the entity files were read in
+  const sortedEntityNames = Array.from(entityNames).sort((a, b) =>
+    a.localeCompare(b),
+  );
+  for (const entityName of sortedEntityNames) {
     if (!visited.has(entityName)) {
       dfs(entityName, []);
     }
