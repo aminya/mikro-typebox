@@ -85,15 +85,15 @@ describe("Circular Reference Detection and Breaking", () => {
       expect(result).toContain("export type PartialPost = {");
       expect(result).toContain("export type PartialComment = {");
 
-      // Check that relations use partial types or are broken by circular reference detection
-      expect(result).toContain("posts: Collection<schema.PartialPost> | Array<schema.PartialPost>");
-      // The author relation should be broken due to circular reference detection
-      expect(result).toContain("author: {");
-      expect(result).toContain("id: number");
-      expect(result).toContain("comments: Collection<schema.PartialComment> | Array<schema.PartialComment>");
-      // The post relation should be broken due to circular reference detection
-      expect(result).toContain("post: {");
+      // The cycles are broken on the to-many side, by inlining a primary key object
+      expect(result).toContain("posts: Collection<{");
       expect(result).toContain("id: string");
+      expect(result).toContain("comments: Collection<{");
+      expect(result).toContain("id: number");
+
+      // The to-one sides no longer complete a cycle, so they keep their partial types
+      expect(result).toContain("author: schema.PartialUser");
+      expect(result).toContain("post: schema.PartialPost");
     });
 
     it("should break circular references by inlining primary key objects", () => {

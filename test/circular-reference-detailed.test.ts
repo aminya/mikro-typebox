@@ -223,8 +223,8 @@ describe("Detailed Circular Reference Detection", () => {
 
     // The circular reference should be broken somewhere in the chain
     // User -> Post -> Comment -> User creates a cycle
-    const hasInlinedRelation = result.includes("author: {") || 
-                              result.includes("post: {");
+    const hasInlinedRelation = result.includes("posts: Collection<{") ||
+                              result.includes("comments: Collection<{");
     expect(hasInlinedRelation).toBe(true);
   });
 });

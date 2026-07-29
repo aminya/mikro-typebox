@@ -14,18 +14,19 @@ for (const folder of ["./test/test-entities/", "./test/test-entities-2/"]) {
             // Generate types with circular reference detection
             const result = generateEntityFileTypes(fileContents, { usePartialTypes: true }).typesCode;
 
-            // Check that some circular references are broken by inlining primary key objects
-            // The exact relations that get broken may vary based on the cycle detection algorithm
-            expect(result).toContain('author: {');
-            expect(result).toContain('id: number;');
-            expect(result).toContain('}');
-
-            expect(result).toContain('post: {');
+            // The cycles (User <-> Post and Post <-> Comment) are broken on the to-many
+            // side, by inlining a primary key object instead of referencing the entity
+            expect(result).toContain('posts: Collection<{');
             expect(result).toContain('id: string;');
             expect(result).toContain('}');
 
-            // Some relations may still use partial types if they don't complete a cycle
-            expect(result).toContain('schema.Partial');
+            expect(result).toContain('comments: Collection<{');
+            expect(result).toContain('id: number;');
+            expect(result).toContain('}');
+
+            // The to-one sides do not complete a cycle anymore, so they keep their partial types
+            expect(result).toContain('author: schema.PartialUser');
+            expect(result).toContain('post: schema.PartialPost');
 
             // Verify the structure is correct
             expect(result).toContain('export namespace schema {');
