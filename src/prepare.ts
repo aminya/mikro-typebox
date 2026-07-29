@@ -39,6 +39,14 @@ function sortEntitiesByDependency(
 
   // Build the graph
   for (const relation of entityRelations) {
+    // Self-references are emitted as recursive types, so they impose no ordering
+    // constraint. Keeping them would give the entity an in-degree that can never
+    // reach zero, which strands it (and everything depending on it) in the
+    // cycle fallback below.
+    if (relation.from === relation.to) {
+      continue;
+    }
+
     if (entityNames.has(relation.from) && entityNames.has(relation.to)) {
       // Add edge from 'to' to 'from' (dependency: 'from' depends on 'to')
       const dependents = adjacencyList.get(relation.to) || [];
@@ -63,6 +71,9 @@ function sortEntitiesByDependency(
 
   // Process entities in topological order
   while (queue.length > 0) {
+    // Break ties by name so the output does not depend on the order the files were read in
+    queue.sort((a, b) => a.localeCompare(b));
+
     const current = queue.shift()!;
     result.push(current);
 
@@ -197,6 +208,133 @@ function detectCircularReferences(
 }
 
 /**
+ * Mikro-ORM decorators that declare a relation to another entity
+ */
+const relationDecoratorNames = new Set([
+  "ManyToOne",
+  "OneToMany",
+  "OneToOne",
+  "ManyToMany",
+]);
+
+/**
+ * Relation decorators whose target is a to-many (collection) relation
+ */
+const collectionDecoratorNames = new Set(["OneToMany", "ManyToMany"]);
+
+/**
+ * Resolve the entity name referenced by the first argument of a relation decorator.
+ * Supports `@ManyToOne("Post")`, `@ManyToOne(Post)` and `@ManyToOne(() => Post)`.
+ */
+function getDecoratorTargetName(
+  decorator: ts.CallExpression,
+): string | undefined {
+  const firstArg = decorator.arguments[0];
+  if (firstArg === undefined) {
+    return undefined;
+  }
+  if (ts.isStringLiteral(firstArg) || ts.isIdentifier(firstArg)) {
+    return firstArg.text;
+  }
+  if (ts.isArrowFunction(firstArg) && ts.isIdentifier(firstArg.body)) {
+    return firstArg.body.text;
+  }
+  return undefined;
+}
+
+/**
+ * Recursively collect every known entity name referenced inside a node.
+ *
+ * The whole subtree is walked so that wrapped relation types are picked up too,
+ * e.g. `Post | null`, `Ref<Post>`, `Post[]`, `Collection<Post>` or
+ * `new Collection<Post>(this)`.
+ */
+function collectReferencedEntityNames(
+  node: ts.Node,
+  entityNames: Set<string>,
+  found: Set<string>,
+): void {
+  if (
+    ts.isTypeReferenceNode(node) &&
+    ts.isIdentifier(node.typeName) &&
+    entityNames.has(node.typeName.text)
+  ) {
+    found.add(node.typeName.text);
+  }
+
+  ts.forEachChild(node, (childNode) =>
+    collectReferencedEntityNames(childNode, entityNames, found),
+  );
+}
+
+/**
+ * Collect the relations declared by a single entity property
+ */
+function collectPropertyRelations(
+  member: ts.PropertyDeclaration,
+  className: string,
+  entityRelations: EntityRelation[],
+  entityNames: Set<string>,
+): void {
+  if (!member.name || !ts.isIdentifier(member.name)) {
+    return;
+  }
+
+  // Find the relation decorators applied to this property
+  const relationDecorators: ts.CallExpression[] = [];
+  let isCollection = false;
+  for (const modifier of member.modifiers ?? []) {
+    if (
+      !ts.isDecorator(modifier) ||
+      !ts.isCallExpression(modifier.expression) ||
+      !ts.isIdentifier(modifier.expression.expression)
+    ) {
+      continue;
+    }
+    const decoratorName = modifier.expression.expression.text;
+    if (!relationDecoratorNames.has(decoratorName)) {
+      continue;
+    }
+    relationDecorators.push(modifier.expression);
+    if (collectionDecoratorNames.has(decoratorName)) {
+      isCollection = true;
+    }
+  }
+
+  if (relationDecorators.length === 0) {
+    return;
+  }
+
+  // Resolve the target entities from the decorator, the type annotation and the initializer
+  const targetEntityNames = new Set<string>();
+  for (const decorator of relationDecorators) {
+    const targetEntityName = getDecoratorTargetName(decorator);
+    if (targetEntityName !== undefined && entityNames.has(targetEntityName)) {
+      targetEntityNames.add(targetEntityName);
+    }
+  }
+  if (member.type) {
+    collectReferencedEntityNames(member.type, entityNames, targetEntityNames);
+  }
+  if (member.initializer) {
+    collectReferencedEntityNames(
+      member.initializer,
+      entityNames,
+      targetEntityNames,
+    );
+  }
+
+  for (const targetEntityName of targetEntityNames) {
+    entityRelations.push({
+      from: className,
+      to: targetEntityName,
+      propertyName: member.name.text,
+      isCollection,
+    });
+  }
+}
+
+/**
  * Collect entity relations from a source file
  */
 function collectEntityRelations(
@@ -219,92 +357,13 @@ function collectEntityRelations(
 
       // Find all property declarations with relation decorators
       for (const member of node.members) {
-        if (ts.isPropertyDeclaration(member) && member.name && ts.isIdentifier(member.name)) {
-          const propertyName = member.name.text;
-          const propertyType = member.type;
-
-          // Check for ManyToOne or OneToMany decorators
-          const hasManyToOne = member.modifiers?.some(
-            (modifier) =>
-              ts.isDecorator(modifier) &&
-              ts.isCallExpression(modifier.expression) &&
-              ts.isIdentifier(modifier.expression.expression) &&
-              modifier.expression.expression.text === "ManyToOne",
+        if (ts.isPropertyDeclaration(member)) {
+          collectPropertyRelations(
+            member,
+            className,
+            entityRelations,
+            entityNames,
           );
-
-          const hasOneToMany = member.modifiers?.some(
-            (modifier) =>
-              ts.isDecorator(modifier) &&
-              ts.isCallExpression(modifier.expression) &&
-              ts.isIdentifier(modifier.expression.expression) &&
-              modifier.expression.expression.text === "OneToMany",
-          );
-
-          if (hasManyToOne || hasOneToMany) {
-            // Extract the target entity name from the type or decorator arguments
-            let targetEntityName: string | null = null;
-
-            // First try to get from decorator arguments
-            if (hasManyToOne) {
-              const manyToOneDecorator = member.modifiers?.find(
-                (modifier) =>
-                  ts.isDecorator(modifier) &&
-                  ts.isCallExpression(modifier.expression) &&
-                  ts.isIdentifier(modifier.expression.expression) &&
-                  modifier.expression.expression.text === "ManyToOne"
-              );
-              if (manyToOneDecorator && 'expression' in manyToOneDecorator && ts.isCallExpression(manyToOneDecorator.expression) &&
-                manyToOneDecorator.expression.arguments.length > 0) {
-                const firstArg = manyToOneDecorator.expression.arguments[0];
-                if (firstArg && ts.isStringLiteral(firstArg)) {
-                  targetEntityName = firstArg.text;
-                }
-              }
-            }
-
-            if (hasOneToMany) {
-              const oneToManyDecorator = member.modifiers?.find(
-                (modifier) =>
-                  ts.isDecorator(modifier) &&
-                  ts.isCallExpression(modifier.expression) &&
-                  ts.isIdentifier(modifier.expression.expression) &&
-                  modifier.expression.expression.text === "OneToMany"
-              );
-              if (oneToManyDecorator && 'expression' in oneToManyDecorator && ts.isCallExpression(oneToManyDecorator.expression) &&
-                oneToManyDecorator.expression.arguments.length > 0) {
-                const firstArg = oneToManyDecorator.expression.arguments[0];
-                if (firstArg && ts.isStringLiteral(firstArg)) {
-                  targetEntityName = firstArg.text;
-                }
-              }
-            }
-
-            // Fallback to type annotation if not found in decorator
-            if (!targetEntityName) {
-              if (propertyType && ts.isTypeReferenceNode(propertyType) && ts.isIdentifier(propertyType.typeName)) {
-                targetEntityName = propertyType.typeName.text;
-              } else if (member.initializer && ts.isNewExpression(member.initializer)) {
-                // Handle Collection<T> initializers
-                const expression = member.initializer.expression;
-                if (ts.isIdentifier(expression) && expression.text === "Collection" &&
-                  member.initializer.typeArguments && member.initializer.typeArguments.length > 0) {
-                  const genericType = member.initializer.typeArguments[0];
-                  if (genericType && ts.isTypeReferenceNode(genericType) && ts.isIdentifier(genericType.typeName)) {
-                    targetEntityName = genericType.typeName.text;
-                  }
-                }
-              }
-            }
-
-            if (targetEntityName && entityNames.has(targetEntityName)) {
-              entityRelations.push({
-                from: className,
-                to: targetEntityName,
-                propertyName,
-                isCollection: !!hasOneToMany,
-              });
-            }
-          }
         }
       }
     }
