@@ -6,6 +6,8 @@
     "target": "ESNext",
     "module": "NodeNext",
     "emitDecoratorMetadata": true,
+    "declaration": true,
+    "incremental": true,
     "experimentalDecorators": true,
     "moduleResolution": "nodenext",
     "outDir": "dist",
