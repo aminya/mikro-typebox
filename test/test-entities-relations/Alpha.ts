@@ -1,11 +1,11 @@
-import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
+import { Entity, PrimaryKey, Property } from "@mikro-orm/core"
 
 /** Root entity: has no relations at all */
 @Entity()
 export class Alpha {
   @PrimaryKey()
-  id!: string;
+  id!: string
 
   @Property()
-  name!: string;
+  name!: string
 }

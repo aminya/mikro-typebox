@@ -22,16 +22,19 @@ npm install --save-dev mikro-typebox
 The package includes a command-line interface for easy usage:
 
 Generate typebox schema from `./src/entities` to `./src/entity-validators.ts`
+
 ```shell
 npx mikro-typebox generate
 ```
 
 Generate Zod schema from `./src/entities` to `./src/entity-validators.ts`
+
 ```shell
 npx mikro-typebox generate --target zod
 ```
 
 Generate Valibot schema from `./src/models` to `./src/validators.ts`
+
 ```shell
 npx mikro-typebox generate --target valibot --entities ./src/models --output ./src/validators.ts
 ```
@@ -96,7 +99,7 @@ Processes multiple entity files and generates types with proper entity ID replac
 ## Usage Examples
 
 ```typescript
-import { generateEntityValidator } from "mikro-typebox";
+import { generateEntityValidator } from "mikro-typebox"
 
 // Generate for TypeBox
 await generateEntityValidator({
@@ -104,7 +107,7 @@ await generateEntityValidator({
   outputFile: "./src/validators.ts",
   write: true,
   partials: true,
-});
+})
 
 // Generate for Zod
 const zodCode = await generateEntityValidator({
@@ -112,7 +115,7 @@ const zodCode = await generateEntityValidator({
   targetValidationLibrary: "zod",
   outputFile: "./src/zod-validators.ts",
   write: true,
-});
+})
 
 // Generate for Valibot
 const valibotCode = await generateEntityValidator({
@@ -120,7 +123,7 @@ const valibotCode = await generateEntityValidator({
   targetValidationLibrary: "valibot",
   outputFile: "./src/valibot-validators.ts",
   write: true,
-});
+})
 ```
 
 ### Working with Entity Files
@@ -129,53 +132,47 @@ Given a Mikro-ORM entity file like this:
 
 ```typescript
 // src/entities/User.ts
-import {
-  Entity,
-  PrimaryKey,
-  Property,
-  Collection,
-  OneToMany,
-} from "@mikro-orm/core";
-import { Book } from "./Book";
+import { Entity, PrimaryKey, Property, Collection, OneToMany } from "@mikro-orm/core"
+import { Book } from "./Book"
 
 @Entity()
 export class User {
   @PrimaryKey()
-  id!: number;
+  id!: number
 
   @Property()
-  name!: string;
+  name!: string
 
   @Property()
-  email!: string;
+  email!: string
 
   @OneToMany(() => Book, (book) => book.author)
-  books = new Collection<Book>(this);
+  books = new Collection<Book>(this)
 
   constructor({ name, email }: User) {
-    this.name = name;
-    this.email = email;
+    this.name = name
+    this.email = email
   }
 }
 
 // src/entities/Book.ts
-import { Entity, PrimaryKey, Property, ManyToOne } from "@mikro-orm/core";
-import { User } from "./User";
+import { Entity, PrimaryKey, Property, ManyToOne } from "@mikro-orm/core"
+import { User } from "./User"
 
 @Entity()
 export class Book {
   @PrimaryKey()
-  id!: number;
+  id!: number
 
   @Property()
-  title!: string;
+  title!: string
 
   @ManyToOne(() => User)
-  author!: User;
+  author!: User
 
   constructor({ title, author }: Book) {
-    this.title = title;
-    this.author = author;
+    this.title = title
+    this.author = author
   }
 }
 ```
@@ -183,35 +180,33 @@ export class Book {
 And then generate validation schemas (e.g., with TypeBox):
 
 ```typescript
-import { Type, Static, TSchema } from "@sinclair/typebox";
+import { Type, Static, TSchema } from "@sinclair/typebox"
 
 export namespace schema {
-  export type Collection<T extends TSchema> = Static<
-    ReturnType<typeof Collection<T>>
-  >;
+  export type Collection<T extends TSchema> = Static<ReturnType<typeof Collection<T>>>
   export const Collection = <T extends TSchema>(T: T) =>
     Type.Object(
       {},
       {
         additionalProperties: T,
       },
-    );
+    )
 
-  export type Book = Static<typeof Book>;
+  export type Book = Static<typeof Book>
   export const Book = Type.Object({
     id: Type.Number(),
     title: Type.String(),
     author: schema.PartialUser,
-  });
+  })
 
-  export type PartialBook = Static<typeof PartialBook>;
+  export type PartialBook = Static<typeof PartialBook>
   export const PartialBook = Type.Object({
     id: Type.Number(),
     title: Type.Optional(Type.String()),
     author: Type.Optional(schema.PartialUser),
-  });
+  })
 
-  export type User = Static<typeof User>;
+  export type User = Static<typeof User>
   export const User = Type.Object({
     id: Type.Number(),
     name: Type.String(),
@@ -228,9 +223,9 @@ export namespace schema {
         }),
       ),
     ]),
-  });
+  })
 
-  export type PartialUser = Static<typeof PartialUser>;
+  export type PartialUser = Static<typeof PartialUser>
   export const PartialUser = Type.Object({
     id: Type.Number(),
     name: Type.Optional(Type.String()),
@@ -249,25 +244,25 @@ export namespace schema {
         ),
       ]),
     ),
-  });
+  })
 }
 ```
 
 or for Zod
 
 ```typescript
-import { z } from "zod";
+import { z } from "zod"
 
-export type schema_Book = z.infer<typeof schema_Book>;
+export type schema_Book = z.infer<typeof schema_Book>
 export const schema_Book = z.object({
   id: z.number(),
   title: z.string(),
   author: z.object({
     id: z.number(),
   }),
-});
+})
 
-export type schema_User = z.infer<typeof schema_User>;
+export type schema_User = z.infer<typeof schema_User>
 export const schema_User = z.object({
   id: z.number(),
   name: z.string(),
@@ -280,13 +275,13 @@ export const schema_User = z.object({
       }),
     ),
   ]),
-});
+})
 ```
 
 ### Programmatic Usage
 
 ```typescript
-import { generateEntityTypes, generateEntityFileTypes } from "mikro-typebox";
+import { generateEntityTypes, generateEntityFileTypes } from "mikro-typebox"
 
 // Process a single entity file
 const entityCode = `
@@ -300,15 +295,15 @@ export class Product {
   @Property()
   name!: string;
 }
-`;
+`
 
-const types = generateEntityTypes(entityCode);
-console.log(types);
+const types = generateEntityTypes(entityCode)
+console.log(types)
 // Output: export type Product = { id: number; name: string; };
 
 // Process multiple entity files
-const fileContents = [entityCode, anotherEntityCode];
-const allTypes = generateEntityFileTypes(fileContents);
+const fileContents = [entityCode, anotherEntityCode]
+const allTypes = generateEntityFileTypes(fileContents)
 ```
 
 ## How It Works

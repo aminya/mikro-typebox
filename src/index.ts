@@ -1,1 +1,1 @@
-export * from "./generate.js";
+export * from "./generate.js"

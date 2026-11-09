@@ -1,40 +1,34 @@
-import * as ts from "typescript";
-import { inferTypeFromInitializer } from "./infer.js";
+import * as ts from "typescript"
+import { inferTypeFromInitializer } from "./infer.js"
 
 export interface EntityParseOptions {
   /**
-   * When true, creates partial types (PartialEntityName) with required ID and optional other properties.
-   * When false, replaces entity references with inline primary key objects to avoid circular references.
+   * When true, creates partial types (PartialEntityName) with required ID and optional other properties. When false,
+   * replaces entity references with inline primary key objects to avoid circular references.
    */
-  usePartialTypes?: boolean;
+  usePartialTypes?: boolean
 }
 
-/**
- * Tracks entity relations to detect circular references
- */
+/** Tracks entity relations to detect circular references */
 interface EntityRelation {
-  from: string;
-  to: string;
-  propertyName: string;
-  isCollection: boolean;
+  from: string
+  to: string
+  propertyName: string
+  isCollection: boolean
 }
 
-
 /**
- * Sort entities by dependency order, handling circular dependencies gracefully
- * Returns entities in order from least dependent to most dependent
+ * Sort entities by dependency order, handling circular dependencies gracefully Returns entities in order from least
+ * dependent to most dependent
  */
-function sortEntitiesByDependency(
-  entityRelations: EntityRelation[],
-  entityNames: Set<string>,
-): string[] {
-  const inDegree = new Map<string, number>();
-  const adjacencyList = new Map<string, string[]>();
+function sortEntitiesByDependency(entityRelations: EntityRelation[], entityNames: Set<string>): string[] {
+  const inDegree = new Map<string, number>()
+  const adjacencyList = new Map<string, string[]>()
 
   // Initialize in-degree and adjacency list
   for (const entityName of entityNames) {
-    inDegree.set(entityName, 0);
-    adjacencyList.set(entityName, []);
+    inDegree.set(entityName, 0)
+    adjacencyList.set(entityName, [])
   }
 
   // Build the graph
@@ -44,47 +38,47 @@ function sortEntitiesByDependency(
     // reach zero, which strands it (and everything depending on it) in the
     // cycle fallback below.
     if (relation.from === relation.to) {
-      continue;
+      continue
     }
 
     if (entityNames.has(relation.from) && entityNames.has(relation.to)) {
       // Add edge from 'to' to 'from' (dependency: 'from' depends on 'to')
-      const dependents = adjacencyList.get(relation.to) || [];
-      dependents.push(relation.from);
-      adjacencyList.set(relation.to, dependents);
+      const dependents = adjacencyList.get(relation.to) || []
+      dependents.push(relation.from)
+      adjacencyList.set(relation.to, dependents)
 
       // Increment in-degree of the dependent entity
-      inDegree.set(relation.from, (inDegree.get(relation.from) || 0) + 1);
+      inDegree.set(relation.from, (inDegree.get(relation.from) || 0) + 1)
     }
   }
 
   // Try topological sort first
-  const queue: string[] = [];
+  const queue: string[] = []
   for (const [entity, degree] of inDegree) {
     if (degree === 0) {
-      queue.push(entity);
+      queue.push(entity)
     }
   }
 
-  const result: string[] = [];
-  const workingInDegree = new Map(inDegree);
+  const result: string[] = []
+  const workingInDegree = new Map(inDegree)
 
   // Process entities in topological order
   while (queue.length > 0) {
     // Break ties by name so the output does not depend on the order the files were read in
-    queue.sort((a, b) => a.localeCompare(b));
+    queue.sort((a, b) => a.localeCompare(b))
 
-    const current = queue.shift()!;
-    result.push(current);
+    const current = queue.shift()!
+    result.push(current)
 
     // Process all entities that depend on current
-    const dependents = adjacencyList.get(current) || [];
+    const dependents = adjacencyList.get(current) || []
     for (const dependent of dependents) {
-      const newDegree = (workingInDegree.get(dependent) || 0) - 1;
-      workingInDegree.set(dependent, newDegree);
+      const newDegree = (workingInDegree.get(dependent) || 0) - 1
+      workingInDegree.set(dependent, newDegree)
 
       if (newDegree === 0) {
-        queue.push(dependent);
+        queue.push(dependent)
       }
     }
   }
@@ -92,193 +86,163 @@ function sortEntitiesByDependency(
   // If we couldn't process all entities due to circular dependencies,
   // use a heuristic: sort remaining entities by in-degree (fewer dependencies first)
   // For entities with the same in-degree, use a more sophisticated tiebreaker
-  const remaining = Array.from(entityNames).filter(name => !result.includes(name));
+  const remaining = Array.from(entityNames).filter((name) => !result.includes(name))
   if (remaining.length > 0) {
     remaining.sort((a, b) => {
-      const degreeA = inDegree.get(a) || 0;
-      const degreeB = inDegree.get(b) || 0;
+      const degreeA = inDegree.get(a) || 0
+      const degreeB = inDegree.get(b) || 0
 
       // Primary sort: by in-degree (fewer dependencies first)
       if (degreeA !== degreeB) {
-        return degreeA - degreeB;
+        return degreeA - degreeB
       }
 
       // Secondary sort: by number of entities that this entity depends on
       // (entities with fewer outgoing dependencies first)
-      const outgoingA = entityRelations.filter(r => r.from === a).length;
-      const outgoingB = entityRelations.filter(r => r.from === b).length;
+      const outgoingA = entityRelations.filter((r) => r.from === a).length
+      const outgoingB = entityRelations.filter((r) => r.from === b).length
       if (outgoingA !== outgoingB) {
-        return outgoingA - outgoingB; // Fewer outgoing dependencies first
+        return outgoingA - outgoingB // Fewer outgoing dependencies first
       }
 
       // Tertiary sort: by name for consistency
-      return a.localeCompare(b);
-    });
-    result.push(...remaining);
+      return a.localeCompare(b)
+    })
+    result.push(...remaining)
   }
 
-  return result;
+  return result
 }
 
-/**
- * Detect circular references in entity relations
- */
+/** Detect circular references in entity relations */
 function detectCircularReferences(
   entityRelations: EntityRelation[],
   entityNames: Set<string>,
 ): Map<string, Set<string>> {
-  const circularReferences = new Map<string, Set<string>>();
-  const visited = new Set<string>();
-  const recursionStack = new Set<string>();
-  const allCycles: string[][] = [];
+  const circularReferences = new Map<string, Set<string>>()
+  const visited = new Set<string>()
+  const recursionStack = new Set<string>()
+  const allCycles: string[][] = []
 
   function dfs(entityName: string, path: string[]): void {
     if (recursionStack.has(entityName)) {
       // Found a circular reference
-      const cycleStart = path.indexOf(entityName);
-      const cycle = path.slice(cycleStart);
-      cycle.push(entityName); // Complete the cycle
+      const cycleStart = path.indexOf(entityName)
+      const cycle = path.slice(cycleStart)
+      cycle.push(entityName) // Complete the cycle
 
       // Store the cycle for later processing
-      allCycles.push(cycle);
-      return;
+      allCycles.push(cycle)
+      return
     }
 
     if (visited.has(entityName)) {
-      return;
+      return
     }
 
-    visited.add(entityName);
-    recursionStack.add(entityName);
+    visited.add(entityName)
+    recursionStack.add(entityName)
 
     // Find all relations from this entity.
     // Which edges end up being reported as circular depends on the traversal order,
     // so the relations are walked by name to keep the result independent of the
     // order the entity files happened to be read in.
-    const relations = entityRelations
-      .filter((rel) => rel.from === entityName)
-      .sort((a, b) => a.to.localeCompare(b.to));
+    const relations = entityRelations.filter((rel) => rel.from === entityName).sort((a, b) => a.to.localeCompare(b.to))
     for (const relation of relations) {
       if (entityNames.has(relation.to)) {
-        dfs(relation.to, [...path, entityName]);
+        dfs(relation.to, [...path, entityName])
       }
     }
 
-    recursionStack.delete(entityName);
+    recursionStack.delete(entityName)
   }
 
   // Check for cycles starting from each entity, again by name so that the
   // traversal does not depend on the order the entity files were read in
-  const sortedEntityNames = Array.from(entityNames).sort((a, b) =>
-    a.localeCompare(b),
-  );
+  const sortedEntityNames = Array.from(entityNames).sort((a, b) => a.localeCompare(b))
   for (const entityName of sortedEntityNames) {
     if (!visited.has(entityName)) {
-      dfs(entityName, []);
+      dfs(entityName, [])
     }
   }
 
   // Process cycles to break the minimum number of relations
-  const brokenRelations = new Set<string>();
+  const brokenRelations = new Set<string>()
 
   // Sort cycles by length (longest first) to prioritize breaking longer cycles
-  allCycles.sort((a, b) => b.length - a.length);
+  allCycles.sort((a, b) => b.length - a.length)
 
   for (const cycle of allCycles) {
     // Check if this cycle is already broken by a previously broken relation
-    let isCycleBroken = false;
+    let isCycleBroken = false
     for (let i = 0; i < cycle.length - 1; i++) {
-      const from = cycle[i];
-      const to = cycle[i + 1];
-      const relationKey = `${from}->${to}`;
+      const from = cycle[i]
+      const to = cycle[i + 1]
+      const relationKey = `${from}->${to}`
       if (brokenRelations.has(relationKey)) {
-        isCycleBroken = true;
-        break;
+        isCycleBroken = true
+        break
       }
     }
 
     if (!isCycleBroken && cycle.length >= 2) {
       // Break the last relation in the cycle
-      const from = cycle[cycle.length - 2];
-      const to = cycle[cycle.length - 1];
+      const from = cycle[cycle.length - 2]
+      const to = cycle[cycle.length - 1]
       if (from && to && from !== to) {
-        const relationKey = `${from}->${to}`;
-        brokenRelations.add(relationKey);
+        const relationKey = `${from}->${to}`
+        brokenRelations.add(relationKey)
 
         if (!circularReferences.has(from)) {
-          circularReferences.set(from, new Set());
+          circularReferences.set(from, new Set())
         }
-        circularReferences.get(from)!.add(to);
+        circularReferences.get(from)!.add(to)
       }
     }
   }
 
-  return circularReferences;
+  return circularReferences
 }
 
-/**
- * Mikro-ORM decorators that declare a relation to another entity
- */
-const relationDecoratorNames = new Set([
-  "ManyToOne",
-  "OneToMany",
-  "OneToOne",
-  "ManyToMany",
-]);
+/** Mikro-ORM decorators that declare a relation to another entity */
+const relationDecoratorNames = new Set(["ManyToOne", "OneToMany", "OneToOne", "ManyToMany"])
+
+/** Relation decorators whose target is a to-many (collection) relation */
+const collectionDecoratorNames = new Set(["OneToMany", "ManyToMany"])
 
 /**
- * Relation decorators whose target is a to-many (collection) relation
+ * Resolve the entity name referenced by the first argument of a relation decorator. Supports `@ManyToOne("Post")`,
+ * `@ManyToOne(Post)` and `@ManyToOne(() => Post)`.
  */
-const collectionDecoratorNames = new Set(["OneToMany", "ManyToMany"]);
-
-/**
- * Resolve the entity name referenced by the first argument of a relation decorator.
- * Supports `@ManyToOne("Post")`, `@ManyToOne(Post)` and `@ManyToOne(() => Post)`.
- */
-function getDecoratorTargetName(
-  decorator: ts.CallExpression,
-): string | undefined {
-  const firstArg = decorator.arguments[0];
+function getDecoratorTargetName(decorator: ts.CallExpression): string | undefined {
+  const firstArg = decorator.arguments[0]
   if (firstArg === undefined) {
-    return undefined;
+    return undefined
   }
   if (ts.isStringLiteral(firstArg) || ts.isIdentifier(firstArg)) {
-    return firstArg.text;
+    return firstArg.text
   }
   if (ts.isArrowFunction(firstArg) && ts.isIdentifier(firstArg.body)) {
-    return firstArg.body.text;
+    return firstArg.body.text
   }
-  return undefined;
+  return undefined
 }
 
 /**
  * Recursively collect every known entity name referenced inside a node.
  *
- * The whole subtree is walked so that wrapped relation types are picked up too,
- * e.g. `Post | null`, `Ref<Post>`, `Post[]`, `Collection<Post>` or
- * `new Collection<Post>(this)`.
+ * The whole subtree is walked so that wrapped relation types are picked up too, e.g. `Post | null`, `Ref<Post>`,
+ * `Post[]`, `Collection<Post>` or `new Collection<Post>(this)`.
  */
-function collectReferencedEntityNames(
-  node: ts.Node,
-  entityNames: Set<string>,
-  found: Set<string>,
-): void {
-  if (
-    ts.isTypeReferenceNode(node) &&
-    ts.isIdentifier(node.typeName) &&
-    entityNames.has(node.typeName.text)
-  ) {
-    found.add(node.typeName.text);
+function collectReferencedEntityNames(node: ts.Node, entityNames: Set<string>, found: Set<string>): void {
+  if (ts.isTypeReferenceNode(node) && ts.isIdentifier(node.typeName) && entityNames.has(node.typeName.text)) {
+    found.add(node.typeName.text)
   }
 
-  ts.forEachChild(node, (childNode) =>
-    collectReferencedEntityNames(childNode, entityNames, found),
-  );
+  ts.forEachChild(node, (childNode) => collectReferencedEntityNames(childNode, entityNames, found))
 }
 
-/**
- * Collect the relations declared by a single entity property
- */
+/** Collect the relations declared by a single entity property */
 function collectPropertyRelations(
   member: ts.PropertyDeclaration,
   className: string,
@@ -286,51 +250,47 @@ function collectPropertyRelations(
   entityNames: Set<string>,
 ): void {
   if (!member.name || !ts.isIdentifier(member.name)) {
-    return;
+    return
   }
 
   // Find the relation decorators applied to this property
-  const relationDecorators: ts.CallExpression[] = [];
-  let isCollection = false;
+  const relationDecorators: ts.CallExpression[] = []
+  let isCollection = false
   for (const modifier of member.modifiers ?? []) {
     if (
       !ts.isDecorator(modifier) ||
       !ts.isCallExpression(modifier.expression) ||
       !ts.isIdentifier(modifier.expression.expression)
     ) {
-      continue;
+      continue
     }
-    const decoratorName = modifier.expression.expression.text;
+    const decoratorName = modifier.expression.expression.text
     if (!relationDecoratorNames.has(decoratorName)) {
-      continue;
+      continue
     }
-    relationDecorators.push(modifier.expression);
+    relationDecorators.push(modifier.expression)
     if (collectionDecoratorNames.has(decoratorName)) {
-      isCollection = true;
+      isCollection = true
     }
   }
 
   if (relationDecorators.length === 0) {
-    return;
+    return
   }
 
   // Resolve the target entities from the decorator, the type annotation and the initializer
-  const targetEntityNames = new Set<string>();
+  const targetEntityNames = new Set<string>()
   for (const decorator of relationDecorators) {
-    const targetEntityName = getDecoratorTargetName(decorator);
+    const targetEntityName = getDecoratorTargetName(decorator)
     if (targetEntityName !== undefined && entityNames.has(targetEntityName)) {
-      targetEntityNames.add(targetEntityName);
+      targetEntityNames.add(targetEntityName)
     }
   }
   if (member.type) {
-    collectReferencedEntityNames(member.type, entityNames, targetEntityNames);
+    collectReferencedEntityNames(member.type, entityNames, targetEntityNames)
   }
   if (member.initializer) {
-    collectReferencedEntityNames(
-      member.initializer,
-      entityNames,
-      targetEntityNames,
-    );
+    collectReferencedEntityNames(member.initializer, entityNames, targetEntityNames)
   }
 
   for (const targetEntityName of targetEntityNames) {
@@ -339,18 +299,12 @@ function collectPropertyRelations(
       to: targetEntityName,
       propertyName: member.name.text,
       isCollection,
-    });
+    })
   }
 }
 
-/**
- * Collect entity relations from a source file
- */
-function collectEntityRelations(
-  node: ts.Node,
-  entityRelations: EntityRelation[],
-  entityNames: Set<string>,
-): void {
+/** Collect entity relations from a source file */
+function collectEntityRelations(node: ts.Node, entityRelations: EntityRelation[], entityNames: Set<string>): void {
   if (ts.isClassDeclaration(node) && node.name) {
     const hasEntityDecorator = node.modifiers?.some(
       (modifier) =>
@@ -358,258 +312,203 @@ function collectEntityRelations(
         ts.isCallExpression(modifier.expression) &&
         ts.isIdentifier(modifier.expression.expression) &&
         modifier.expression.expression.text === "Entity",
-    );
+    )
 
     if (hasEntityDecorator) {
-      const className = node.name.text;
-      entityNames.add(className);
+      const className = node.name.text
+      entityNames.add(className)
 
       // Find all property declarations with relation decorators
       for (const member of node.members) {
         if (ts.isPropertyDeclaration(member)) {
-          collectPropertyRelations(
-            member,
-            className,
-            entityRelations,
-            entityNames,
-          );
+          collectPropertyRelations(member, className, entityRelations, entityNames)
         }
       }
     }
   }
 
-  ts.forEachChild(node, (childNode) =>
-    collectEntityRelations(childNode, entityRelations, entityNames),
-  );
+  ts.forEachChild(node, (childNode) => collectEntityRelations(childNode, entityRelations, entityNames))
 }
 
-/**
- * Process multiple entity files and generate types with proper entity ID replacement
- */
+/** Process multiple entity files and generate types with proper entity ID replacement */
 export function generateEntityFileTypes(
   files: Map<string, string>,
   options: EntityParseOptions = {},
 ): { typesCode: string; enumDefinitions: Map<string, string> } {
   // First pass: collect all entities and their primary key info from all files
-  const entityPrimaryKeys = new Map<
-    string,
-    { fieldName: string; fieldType: ts.TypeNode }
-  >();
-  const sourceFile = ts.createSourceFile(
-    "temp.ts",
-    Array.from(files.values()).join("\n"),
-    ts.ScriptTarget.Latest,
-    true
-  );
+  const entityPrimaryKeys = new Map<string, { fieldName: string; fieldType: ts.TypeNode }>()
+  const sourceFile = ts.createSourceFile("temp.ts", Array.from(files.values()).join("\n"), ts.ScriptTarget.Latest, true)
 
   // Collect all entity names
-  const entityNames = new Set<string>();
+  const entityNames = new Set<string>()
 
   // Collect all entities from all files
-  visitEntities(sourceFile, entityPrimaryKeys, entityNames);
+  visitEntities(sourceFile, entityPrimaryKeys, entityNames)
 
   // Collect all entity relations
-  const entityRelations: EntityRelation[] = [];
+  const entityRelations: EntityRelation[] = []
 
   // Then collect entity relations for circular reference detection
-  collectEntityRelations(sourceFile, entityRelations, entityNames);
+  collectEntityRelations(sourceFile, entityRelations, entityNames)
 
   // Detect circular references
-  const circularReferences = detectCircularReferences(entityRelations, entityNames);
+  const circularReferences = detectCircularReferences(entityRelations, entityNames)
 
   // Create a map from entity names to their file contents for reordering
-  const entityToFileMap = new Map<string, string>();
+  const entityToFileMap = new Map<string, string>()
   // Collect enum definitions
-  const enumDefinitions = new Map<string, string>();
+  const enumDefinitions = new Map<string, string>()
 
   // Map each entity to its source file content
   for (const [filePath, content] of files) {
-    const sourceFile = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true);
+    const sourceFile = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true)
 
     // Collect enum declarations from this file
-    enumVisitor(sourceFile, filePath, enumDefinitions);
+    enumVisitor(sourceFile, filePath, enumDefinitions)
 
     // Find entities in this file
-    const fileEntityNames = new Set<string>();
-    visitEntities(sourceFile, new Map(), fileEntityNames);
+    const fileEntityNames = new Set<string>()
+    visitEntities(sourceFile, new Map(), fileEntityNames)
 
     // Map each entity to this file's content
     for (const entityName of fileEntityNames) {
-      entityToFileMap.set(entityName, content);
+      entityToFileMap.set(entityName, content)
     }
   }
 
   // Sort entities by dependency order
-  const sortedEntityNames = sortEntitiesByDependency(entityRelations, entityNames);
+  const sortedEntityNames = sortEntitiesByDependency(entityRelations, entityNames)
 
   // Reorder file contents based on dependency order
-  const reorderedFileContents: string[] = [];
-  const processedFiles = new Set<string>();
+  const reorderedFileContents: string[] = []
+  const processedFiles = new Set<string>()
 
   for (const entityName of sortedEntityNames) {
-    const fileContent = entityToFileMap.get(entityName);
+    const fileContent = entityToFileMap.get(entityName)
     if (fileContent && !processedFiles.has(fileContent)) {
-      reorderedFileContents.push(fileContent);
-      processedFiles.add(fileContent);
+      reorderedFileContents.push(fileContent)
+      processedFiles.add(fileContent)
     }
   }
 
   // Add any remaining files that weren't processed (shouldn't happen in normal cases)
   for (const fileContent of files.values()) {
     if (!processedFiles.has(fileContent)) {
-      reorderedFileContents.push(fileContent);
+      reorderedFileContents.push(fileContent)
     }
   }
 
   // Second pass: process each file with the complete entity map and circular reference info
   const generatedTypes = reorderedFileContents
     .map((code) => generateEntityTypes(code, entityPrimaryKeys, options, circularReferences))
-    .join("\n");
+    .join("\n")
 
   // Wrap the generated types in a namespace schema with Collection type definition
   const typesCode = `export namespace schema {
 export type Collection<T> = { [k: number]: T; };
 
 ${generatedTypes}
-}`;
+}`
 
-  return { typesCode, enumDefinitions };
+  return { typesCode, enumDefinitions }
 }
 
 // Collect enum declarations from this file
 function enumVisitor(node: ts.Node, filePath: string, enumDefinitions: Map<string, string>) {
   if (ts.isEnumDeclaration(node) && node.name) {
-    const enumName = node.name.text;
-    enumDefinitions.set(enumName, filePath);
+    const enumName = node.name.text
+    enumDefinitions.set(enumName, filePath)
   }
-  ts.forEachChild(node, (childNode) => enumVisitor(childNode, filePath, enumDefinitions));
+  ts.forEachChild(node, (childNode) => enumVisitor(childNode, filePath, enumDefinitions))
 }
 
-/**
- * Cleanup the code to remove the imports and the calls to the imported symbols
- */
+/** Cleanup the code to remove the imports and the calls to the imported symbols */
 export function generateEntityTypes(
   code: string,
-  entityPrimaryKeys: Map<
-    string,
-    { fieldName: string; fieldType: ts.TypeNode }
-  > = new Map(),
+  entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }> = new Map(),
   options: EntityParseOptions = {},
   circularReferences: Map<string, Set<string>> = new Map(),
 ): string {
-  const sourceFile = ts.createSourceFile(
-    "temp.ts",
-    code,
-    ts.ScriptTarget.Latest,
-    true,
-  );
+  const sourceFile = ts.createSourceFile("temp.ts", code, ts.ScriptTarget.Latest, true)
 
   // Collect imports and their symbols
-  const importNodes = new Set<ts.Node>();
-  const importedSymbols = new Set<string>();
-  visitImports(sourceFile, importNodes, importedSymbols);
+  const importNodes = new Set<ts.Node>()
+  const importedSymbols = new Set<string>()
+  visitImports(sourceFile, importNodes, importedSymbols)
 
   // Find calls to imported symbols
-  const callExpressionsToRemove: Set<ts.Node> = new Set();
-  visitCalls(sourceFile, importedSymbols, callExpressionsToRemove);
+  const callExpressionsToRemove: Set<ts.Node> = new Set()
+  visitCalls(sourceFile, importedSymbols, callExpressionsToRemove)
 
   // Collect entity classes and their primary key info from this file
-  visitEntities(sourceFile, entityPrimaryKeys);
+  visitEntities(sourceFile, entityPrimaryKeys)
 
   // Apply the transformer
   const result = ts.transform(sourceFile, [
-    (ctx) =>
-      transformer(
-        ctx,
-        importNodes,
-        callExpressionsToRemove,
-        entityPrimaryKeys,
-        options,
-        circularReferences,
-      ),
-  ]);
-  const transformedSourceFile = result.transformed[0];
+    (ctx) => transformer(ctx, importNodes, callExpressionsToRemove, entityPrimaryKeys, options, circularReferences),
+  ])
+  const transformedSourceFile = result.transformed[0]
   if (!transformedSourceFile) {
-    return code;
+    return code
   }
-  result.dispose();
+  result.dispose()
 
-  return ts.createPrinter().printFile(transformedSourceFile);
+  return ts.createPrinter().printFile(transformedSourceFile)
 }
 
-/**
- * Collect imports and their symbols
- */
-function visitImports(
-  node: ts.Node,
-  importNodes: Set<ts.Node>,
-  importedSymbols: Set<string>,
-): void {
+/** Collect imports and their symbols */
+function visitImports(node: ts.Node, importNodes: Set<ts.Node>, importedSymbols: Set<string>): void {
   if (ts.isImportDeclaration(node)) {
-    const moduleSpecifier = node.moduleSpecifier;
+    const moduleSpecifier = node.moduleSpecifier
 
     if (ts.isStringLiteral(moduleSpecifier)) {
-      const importPath = moduleSpecifier.text;
+      const importPath = moduleSpecifier.text
 
       // Mark ALL imports for removal (both regular and type imports)
-      importNodes.add(node);
+      importNodes.add(node)
 
       // collect symbols from non-relative imports
       if (!importPath.includes("./") && node.importClause) {
         // collect named imports (both regular and type)
-        if (
-          node.importClause.namedBindings &&
-          ts.isNamedImports(node.importClause.namedBindings)
-        ) {
+        if (node.importClause.namedBindings && ts.isNamedImports(node.importClause.namedBindings)) {
           for (const element of node.importClause.namedBindings.elements) {
-            importedSymbols.add(element.name.text);
+            importedSymbols.add(element.name.text)
           }
         }
 
         // collect namespace imports
-        if (
-          node.importClause.namedBindings &&
-          ts.isNamespaceImport(node.importClause.namedBindings)
-        ) {
-          importedSymbols.add(node.importClause.namedBindings.name.text);
+        if (node.importClause.namedBindings && ts.isNamespaceImport(node.importClause.namedBindings)) {
+          importedSymbols.add(node.importClause.namedBindings.name.text)
         }
 
         // collect default imports
         if (node.importClause.name) {
-          importedSymbols.add(node.importClause.name.text);
+          importedSymbols.add(node.importClause.name.text)
         }
       }
     }
   }
 
-  ts.forEachChild(node, (childNode) =>
-    visitImports(childNode, importNodes, importedSymbols),
-  );
+  ts.forEachChild(node, (childNode) => visitImports(childNode, importNodes, importedSymbols))
 }
 
-/**
- * Find calls to imported symbols
- */
+/** Find calls to imported symbols */
 function visitCalls(
   node: ts.Node,
   importedSymbols: Set<string>,
   callExpressionsToRemove: Set<ts.Node> = new Set(),
 ): void {
   if (ts.isCallExpression(node)) {
-    const expression = node.expression;
+    const expression = node.expression
     if (ts.isIdentifier(expression) && importedSymbols.has(expression.text)) {
-      callExpressionsToRemove.add(node);
+      callExpressionsToRemove.add(node)
     }
   }
 
-  ts.forEachChild(node, (node) =>
-    visitCalls(node, importedSymbols, callExpressionsToRemove),
-  );
+  ts.forEachChild(node, (node) => visitCalls(node, importedSymbols, callExpressionsToRemove))
 }
 
-/**
- * Create a named partial type (Partial<Entity>) with required ID and optional other properties
- */
+/** Create a named partial type (Partial<Entity>) with required ID and optional other properties */
 function createPartialEntityType(
   entityName: string,
   primaryKeyInfo: { fieldName: string; fieldType: ts.TypeNode },
@@ -617,13 +516,9 @@ function createPartialEntityType(
 ): ts.TypeAliasDeclaration {
   // Create the partial type with required ID and optional other properties
   const partialProperties = allProperties.map((prop) => {
-    if (
-      ts.isPropertySignature(prop) &&
-      ts.isIdentifier(prop.name) &&
-      prop.name.text === primaryKeyInfo.fieldName
-    ) {
+    if (ts.isPropertySignature(prop) && ts.isIdentifier(prop.name) && prop.name.text === primaryKeyInfo.fieldName) {
       // Keep the primary key as required
-      return prop;
+      return prop
     } else {
       // Make all other properties optional
       return ts.factory.createPropertySignature(
@@ -631,38 +526,26 @@ function createPartialEntityType(
         prop.name,
         ts.factory.createToken(ts.SyntaxKind.QuestionToken), // Add ? to make optional
         prop.type,
-      );
+      )
     }
-  });
+  })
 
   return ts.factory.createTypeAliasDeclaration(
     [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
     `Partial${entityName}`,
     undefined,
     ts.factory.createTypeLiteralNode(partialProperties),
-  );
+  )
 }
 
-/**
- * Create an inline object type with just the primary key field for deep references
- */
-function createPrimaryKeyObjectType(primaryKeyInfo: {
-  fieldName: string;
-  fieldType: ts.TypeNode;
-}): ts.TypeLiteralNode {
+/** Create an inline object type with just the primary key field for deep references */
+function createPrimaryKeyObjectType(primaryKeyInfo: { fieldName: string; fieldType: ts.TypeNode }): ts.TypeLiteralNode {
   return ts.factory.createTypeLiteralNode([
-    ts.factory.createPropertySignature(
-      undefined,
-      primaryKeyInfo.fieldName,
-      undefined,
-      primaryKeyInfo.fieldType,
-    ),
-  ]);
+    ts.factory.createPropertySignature(undefined, primaryKeyInfo.fieldName, undefined, primaryKeyInfo.fieldType),
+  ])
 }
 
-/**
- * Replace entity type references with partial entity types (when usePartialTypes is true)
- */
+/** Replace entity type references with partial entity types (when usePartialTypes is true) */
 export function replaceEntityTypeWithPartialType(
   type: ts.TypeNode,
   entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>,
@@ -670,45 +553,41 @@ export function replaceEntityTypeWithPartialType(
   currentEntity?: string,
 ): ts.TypeNode {
   if (ts.isTypeReferenceNode(type) && ts.isIdentifier(type.typeName)) {
-    const entityName = type.typeName.text;
-    const primaryKeyInfo = entityPrimaryKeys.get(entityName);
+    const entityName = type.typeName.text
+    const primaryKeyInfo = entityPrimaryKeys.get(entityName)
     if (primaryKeyInfo) {
       // Check if this would create a circular reference
-      if (currentEntity && circularReferences.has(currentEntity) &&
-        circularReferences.get(currentEntity)!.has(entityName)) {
+      if (
+        currentEntity &&
+        circularReferences.has(currentEntity) &&
+        circularReferences.get(currentEntity)!.has(entityName)
+      ) {
         // Break the circular reference by inlining the primary key object
-        return createPrimaryKeyObjectType(primaryKeyInfo);
+        return createPrimaryKeyObjectType(primaryKeyInfo)
       }
 
-      return ts.factory.createTypeReferenceNode(
-        ts.factory.createIdentifier(`schema.Partial${entityName}`),
-        undefined,
-      );
+      return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(`schema.Partial${entityName}`), undefined)
     }
   }
-  return type;
+  return type
 }
 
-/**
- * Replace entity type references with object types containing primary key (when usePartialTypes is false)
- */
+/** Replace entity type references with object types containing primary key (when usePartialTypes is false) */
 export function replaceEntityTypeWithPrimaryKey(
   type: ts.TypeNode,
   entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>,
 ): ts.TypeNode {
   if (ts.isTypeReferenceNode(type) && ts.isIdentifier(type.typeName)) {
-    const entityName = type.typeName.text;
-    const primaryKeyInfo = entityPrimaryKeys.get(entityName);
+    const entityName = type.typeName.text
+    const primaryKeyInfo = entityPrimaryKeys.get(entityName)
     if (primaryKeyInfo) {
-      return createPrimaryKeyObjectType(primaryKeyInfo);
+      return createPrimaryKeyObjectType(primaryKeyInfo)
     }
   }
-  return type;
+  return type
 }
 
-/**
- * Transform Collection<T> to Array<T> and replace entity types in generic arguments based on usePartialTypes option
- */
+/** Transform Collection<T> to Array<T> and replace entity types in generic arguments based on usePartialTypes option */
 function transformCollectionType(
   type: ts.TypeNode,
   entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>,
@@ -716,47 +595,29 @@ function transformCollectionType(
   circularReferences: Map<string, Set<string>> = new Map(),
   currentEntity?: string,
 ): ts.TypeNode {
-  if (
-    ts.isTypeReferenceNode(type) &&
-    ts.isIdentifier(type.typeName) &&
-    type.typeName.text === "Collection"
-  ) {
+  if (ts.isTypeReferenceNode(type) && ts.isIdentifier(type.typeName) && type.typeName.text === "Collection") {
     if (type.typeArguments !== undefined && type.typeArguments.length > 0) {
       // Replace entity types in the generic arguments based on the usePartialTypes option
       const transformedTypeArgs = type.typeArguments.map((typeArg) => {
-        return options.usePartialTypes ?
-          replaceEntityTypeWithPartialType(typeArg, entityPrimaryKeys, circularReferences, currentEntity) :
-          replaceEntityTypeWithPrimaryKey(typeArg, entityPrimaryKeys);
-      });
+        return options.usePartialTypes
+          ? replaceEntityTypeWithPartialType(typeArg, entityPrimaryKeys, circularReferences, currentEntity)
+          : replaceEntityTypeWithPrimaryKey(typeArg, entityPrimaryKeys)
+      })
       return ts.factory.createUnionTypeNode([
-        ts.factory.createTypeReferenceNode(
-          ts.factory.createIdentifier("Collection"),
-          transformedTypeArgs,
-        ),
-        ts.factory.createTypeReferenceNode(
-          ts.factory.createIdentifier("Array"),
-          transformedTypeArgs,
-        ),
-      ]);
+        ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Collection"), transformedTypeArgs),
+        ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Array"), transformedTypeArgs),
+      ])
     } else {
       return ts.factory.createUnionTypeNode([
-        ts.factory.createTypeReferenceNode(
-          ts.factory.createIdentifier("Collection"),
-          type.typeArguments,
-        ),
-        ts.factory.createTypeReferenceNode(
-          ts.factory.createIdentifier("Array"),
-          type.typeArguments,
-        ),
-      ]);
+        ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Collection"), type.typeArguments),
+        ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Array"), type.typeArguments),
+      ])
     }
   }
-  return type;
+  return type
 }
 
-/**
- * Transform a type node by replacing entities and collections
- */
+/** Transform a type node by replacing entities and collections */
 export function transformTypeNode(
   type: ts.TypeNode,
   entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>,
@@ -771,31 +632,20 @@ export function transformTypeNode(
     options,
     circularReferences,
     currentEntity,
-  );
+  )
   if (collectionTransformed !== type) {
-    return collectionTransformed;
+    return collectionTransformed
   }
 
   // Then try to replace entity types based on the option
   if (options.usePartialTypes) {
-    return replaceEntityTypeWithPartialType(
-      collectionTransformed,
-      entityPrimaryKeys,
-      circularReferences,
-      currentEntity,
-    );
+    return replaceEntityTypeWithPartialType(collectionTransformed, entityPrimaryKeys, circularReferences, currentEntity)
   } else {
-    return replaceEntityTypeWithPrimaryKey(
-      collectionTransformed,
-      entityPrimaryKeys,
-    );
+    return replaceEntityTypeWithPrimaryKey(collectionTransformed, entityPrimaryKeys)
   }
 }
 
-
-/**
- * Collect entity classes and their primary key info
- */
+/** Collect entity classes and their primary key info */
 function visitEntities(
   node: ts.Node,
   entityPrimaryKeys: Map<string, { fieldName: string; fieldType: ts.TypeNode }>,
@@ -809,14 +659,14 @@ function visitEntities(
         ts.isCallExpression(modifier.expression) &&
         ts.isIdentifier(modifier.expression.expression) &&
         modifier.expression.expression.text === "Entity",
-    );
+    )
 
     if (hasEntityDecorator) {
-      const className = node.name.text;
+      const className = node.name.text
 
       // Add to entity names set if provided
       if (entityNames) {
-        entityNames.add(className);
+        entityNames.add(className)
       }
 
       // Find the @PrimaryKey() property to get the field name and type
@@ -830,7 +680,7 @@ function visitEntities(
               ts.isIdentifier(modifier.expression.expression) &&
               modifier.expression.expression.text === "PrimaryKey",
           ),
-      );
+      )
 
       if (
         primaryKeyProperty &&
@@ -842,25 +692,24 @@ function visitEntities(
         entityPrimaryKeys.set(className, {
           fieldName: primaryKeyProperty.name.text,
           fieldType: primaryKeyProperty.type,
-        });
+        })
       }
     }
   }
 
-  ts.forEachChild(node, (childNode) =>
-    visitEntities(childNode, entityPrimaryKeys, entityNames),
-  );
+  ts.forEachChild(node, (childNode) => visitEntities(childNode, entityPrimaryKeys, entityNames))
 }
 
 /**
  * Create a transformer to
- * - remove the identified nodes
- * - convert class declarations to type aliases
- * - remove variable declarations with initializers
- * - remove expression statements (like method calls and assignments)
- * - remove definite assignment assertions (!:)
- * - replace Collection<T> with Array<T>
- * - create partial types when usePartialTypes is true
+ *
+ * - Remove the identified nodes
+ * - Convert class declarations to type aliases
+ * - Remove variable declarations with initializers
+ * - Remove expression statements (like method calls and assignments)
+ * - Remove definite assignment assertions (!:)
+ * - Replace Collection<T> with Array<T>
+ * - Create partial types when usePartialTypes is true
  */
 const transformer = (
   context: ts.TransformationContext,
@@ -874,29 +723,25 @@ const transformer = (
     const visitor = (node: ts.Node, currentEntity?: string): ts.Node | ts.Node[] | undefined => {
       // Remove import declarations
       if (importNodes.has(node)) {
-        return undefined;
+        return undefined
       }
 
       // Remove call expressions
       if (callExpressionsToRemove.has(node)) {
-        return undefined;
+        return undefined
       }
 
       // Convert class declarations to type aliases
       if (ts.isClassDeclaration(node) && node.name) {
-        const className = node.name.text;
+        const className = node.name.text
 
         // Extract property signatures from the class
         const propertySignatures = node.members
           .filter((member) => ts.isPropertyDeclaration(member))
           .map((member) => {
-            if (
-              ts.isPropertyDeclaration(member) &&
-              member.name &&
-              ts.isIdentifier(member.name)
-            ) {
-              const propertyName = member.name.text;
-              let type = member.type;
+            if (ts.isPropertyDeclaration(member) && member.name && ts.isIdentifier(member.name)) {
+              const propertyName = member.name.text
+              let type = member.type
 
               // If no explicit type annotation, try to infer from initializer
               if (!type && member.initializer) {
@@ -906,29 +751,22 @@ const transformer = (
                   options,
                   circularReferences,
                   className,
-                );
+                )
               }
 
               // Fallback to any if we still don't have a type
               if (!type) {
-                type = ts.factory.createKeywordTypeNode(
-                  ts.SyntaxKind.AnyKeyword,
-                );
+                type = ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
               }
 
               // Transform the type by replacing entities and collections
-              type = transformTypeNode(type, entityPrimaryKeys, options, circularReferences, className);
+              type = transformTypeNode(type, entityPrimaryKeys, options, circularReferences, className)
 
-              return ts.factory.createPropertySignature(
-                undefined,
-                propertyName,
-                member.questionToken,
-                type,
-              );
+              return ts.factory.createPropertySignature(undefined, propertyName, member.questionToken, type)
             }
-            return null;
+            return null
           })
-          .filter((item): item is ts.PropertySignature => item !== null);
+          .filter((item): item is ts.PropertySignature => item !== null)
 
         // Create the main entity type
         const mainType = ts.factory.createTypeAliasDeclaration(
@@ -936,32 +774,28 @@ const transformer = (
           className,
           undefined,
           ts.factory.createTypeLiteralNode(propertySignatures),
-        );
+        )
 
         // Create the partial type if this is an entity with a primary key and usePartialTypes is true
         if (options.usePartialTypes) {
-          const primaryKeyInfo = entityPrimaryKeys.get(className);
+          const primaryKeyInfo = entityPrimaryKeys.get(className)
           if (primaryKeyInfo) {
-            const partialType = createPartialEntityType(
-              className,
-              primaryKeyInfo,
-              propertySignatures,
-            );
-            return [mainType, partialType];
+            const partialType = createPartialEntityType(className, primaryKeyInfo, propertySignatures)
+            return [mainType, partialType]
           }
         }
 
-        return mainType;
+        return mainType
       }
 
       // Remove variable declarations with initializers
       if (ts.isVariableDeclaration(node) && node.initializer) {
-        return undefined;
+        return undefined
       }
 
       // Remove expression statements (like method calls and assignments)
       if (ts.isExpressionStatement(node)) {
-        return undefined;
+        return undefined
       }
 
       // Remove definite assignment assertions (!:)
@@ -972,12 +806,12 @@ const transformer = (
           node.questionToken,
           node.type,
           node.initializer,
-        );
+        )
       }
 
       // Transform type reference nodes (Collection<T> and entity types)
       if (ts.isTypeReferenceNode(node)) {
-        return transformTypeNode(node, entityPrimaryKeys, options, circularReferences, currentEntity);
+        return transformTypeNode(node, entityPrimaryKeys, options, circularReferences, currentEntity)
       }
 
       // Transform property signatures with entity types
@@ -988,20 +822,15 @@ const transformer = (
           options,
           circularReferences,
           currentEntity,
-        );
+        )
         if (transformedType !== node.type) {
-          return ts.factory.createPropertySignature(
-            node.modifiers,
-            node.name,
-            node.questionToken,
-            transformedType,
-          );
+          return ts.factory.createPropertySignature(node.modifiers, node.name, node.questionToken, transformedType)
         }
       }
 
-      return ts.visitEachChild(node, (childNode) => visitor(childNode, currentEntity), context);
-    };
+      return ts.visitEachChild(node, (childNode) => visitor(childNode, currentEntity), context)
+    }
 
-    return ts.visitNode(sourceFile, visitor) as ts.SourceFile;
-  };
-};
+    return ts.visitNode(sourceFile, visitor) as ts.SourceFile
+  }
+}
