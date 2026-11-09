@@ -1,8 +1,5 @@
-import { describe, it, expect } from "bun:test";
-import {
-  generateEntityTypes,
-  generateEntityFileTypes,
-} from "../src/prepare.js";
+import { describe, it, expect } from "bun:test"
+import { generateEntityTypes, generateEntityFileTypes } from "../src/prepare.js"
 
 describe("entity-parse", () => {
   describe("generateEntityTypes", () => {
@@ -21,19 +18,19 @@ describe("entity-parse", () => {
           @Property({ nullable: true })
           email?: string;
         }
-      `;
+      `
 
-      const result = generateEntityTypes(code);
+      const result = generateEntityTypes(code)
 
-      expect(result).toContain("export type User = {");
-      expect(result).toContain("id: number");
-      expect(result).toContain("name: string");
-      expect(result).toContain("email?: string");
-      expect(result).not.toContain("@Entity()");
-      expect(result).not.toContain("@PrimaryKey()");
-      expect(result).not.toContain("@Property()");
-      expect(result).not.toContain("import { Entity, PrimaryKey, Property }");
-    });
+      expect(result).toContain("export type User = {")
+      expect(result).toContain("id: number")
+      expect(result).toContain("name: string")
+      expect(result).toContain("email?: string")
+      expect(result).not.toContain("@Entity()")
+      expect(result).not.toContain("@PrimaryKey()")
+      expect(result).not.toContain("@Property()")
+      expect(result).not.toContain("import { Entity, PrimaryKey, Property }")
+    })
 
     it("should handle entities with Collection relationships", () => {
       const code = `
@@ -51,13 +48,13 @@ describe("entity-parse", () => {
           @OneToMany(() => Post, post => post.author)
           posts = new Collection<Post>(this);
         }
-      `;
+      `
 
-      const result = generateEntityTypes(code);
+      const result = generateEntityTypes(code)
 
-      expect(result).toContain("export type User = {");
-      expect(result).toContain("posts: Collection<Post> | Array<Post>");
-    });
+      expect(result).toContain("export type User = {")
+      expect(result).toContain("posts: Collection<Post> | Array<Post>")
+    })
 
     it("should handle entities with ManyToOne relationships", () => {
       const code = `
@@ -75,13 +72,13 @@ describe("entity-parse", () => {
           @ManyToOne(() => User)
           author!: User;
         }
-      `;
+      `
 
-      const result = generateEntityTypes(code);
+      const result = generateEntityTypes(code)
 
-      expect(result).toContain("export type Post = {");
-      expect(result).toContain("author: User");
-    });
+      expect(result).toContain("export type Post = {")
+      expect(result).toContain("author: User")
+    })
 
     it("should remove imports and decorators", () => {
       const code = `
@@ -99,17 +96,17 @@ describe("entity-parse", () => {
 
         const someVariable = "test";
         someFunction();
-      `;
+      `
 
-      const result = generateEntityTypes(code);
+      const result = generateEntityTypes(code)
 
-      expect(result).not.toContain("import {");
-      expect(result).not.toContain("@Entity()");
-      expect(result).not.toContain("@PrimaryKey()");
-      expect(result).not.toContain("@Property()");
-      expect(result).not.toContain("const someVariable");
-      expect(result).not.toContain("someFunction()");
-    });
+      expect(result).not.toContain("import {")
+      expect(result).not.toContain("@Entity()")
+      expect(result).not.toContain("@PrimaryKey()")
+      expect(result).not.toContain("@Property()")
+      expect(result).not.toContain("const someVariable")
+      expect(result).not.toContain("someFunction()")
+    })
 
     it("should handle entities with different ID types", () => {
       const code = `
@@ -126,15 +123,15 @@ describe("entity-parse", () => {
           @PrimaryKey()
           id!: string;
         }
-      `;
+      `
 
-      const result = generateEntityTypes(code);
+      const result = generateEntityTypes(code)
 
-      expect(result).toContain("export type User = {");
-      expect(result).toContain("id: number");
-      expect(result).toContain("export type Post = {");
-      expect(result).toContain("id: string");
-    });
+      expect(result).toContain("export type User = {")
+      expect(result).toContain("id: number")
+      expect(result).toContain("export type Post = {")
+      expect(result).toContain("id: string")
+    })
 
     it("should handle optional properties", () => {
       const code = `
@@ -151,14 +148,14 @@ describe("entity-parse", () => {
           @Property()
           name!: string;
         }
-      `;
+      `
 
-      const result = generateEntityTypes(code);
+      const result = generateEntityTypes(code)
 
-      expect(result).toContain("email?: string");
-      expect(result).toContain("name: string");
-    });
-  });
+      expect(result).toContain("email?: string")
+      expect(result).toContain("name: string")
+    })
+  })
 
   describe("generateEntityFileTypes", () => {
     it("should process multiple entity files and replace entity references with ID types", () => {
@@ -177,7 +174,7 @@ describe("entity-parse", () => {
           @OneToMany(() => Post, post => post.author)
           posts = new Collection<Post>(this);
         }
-      `;
+      `
 
       const postCode = `
         import { Entity, PrimaryKey, Property, ManyToOne, Collection, OneToMany } from "@mikro-orm/core";
@@ -198,7 +195,7 @@ describe("entity-parse", () => {
           @OneToMany(() => Comment, comment => comment.post)
           comments = new Collection<Comment>(this);
         }
-      `;
+      `
 
       const commentCode = `
         import { Entity, PrimaryKey, Property, ManyToOne } from "@mikro-orm/core";
@@ -219,30 +216,34 @@ describe("entity-parse", () => {
           @ManyToOne(() => User)
           author!: User;
         }
-      `;
+      `
 
       const result = generateEntityFileTypes(
-        new Map([["User.ts", userCode], ["Post.ts", postCode], ["Comment.ts", commentCode]]),
+        new Map([
+          ["User.ts", userCode],
+          ["Post.ts", postCode],
+          ["Comment.ts", commentCode],
+        ]),
         { usePartialTypes: true },
-      ).typesCode;
+      ).typesCode
 
       // Check that the result is wrapped in namespace schema
-      expect(result).toContain("namespace schema {");
-      expect(result).toContain("}");
+      expect(result).toContain("namespace schema {")
+      expect(result).toContain("}")
 
       // Check that entity references are replaced with partial types
-      expect(result).toContain("author: schema.PartialUser"); // User entity with partial type
-      expect(result).toContain("post: schema.PartialPost"); // Post entity with partial type
+      expect(result).toContain("author: schema.PartialUser") // User entity with partial type
+      expect(result).toContain("post: schema.PartialPost") // Post entity with partial type
 
       // The collections close a cycle, so they are broken by inlining a primary key object
-      expect(result).toContain("posts: Collection<{");
-      expect(result).toContain("comments: Collection<{");
+      expect(result).toContain("posts: Collection<{")
+      expect(result).toContain("comments: Collection<{")
 
       // Check that partial types are generated
-      expect(result).toContain("export type PartialUser = {");
-      expect(result).toContain("export type PartialPost = {");
-      expect(result).toContain("export type PartialComment = {");
-    });
+      expect(result).toContain("export type PartialUser = {")
+      expect(result).toContain("export type PartialPost = {")
+      expect(result).toContain("export type PartialComment = {")
+    })
 
     it("should handle single entity file", () => {
       const code = `
@@ -256,24 +257,24 @@ describe("entity-parse", () => {
           @Property()
           name!: string;
         }
-      `;
+      `
 
-      const result = generateEntityFileTypes(new Map([["User.ts", code]])).typesCode;
+      const result = generateEntityFileTypes(new Map([["User.ts", code]])).typesCode
 
       // Check that the result is wrapped in namespace schema
-      expect(result).toContain("namespace schema {");
-      expect(result).toContain("}");
+      expect(result).toContain("namespace schema {")
+      expect(result).toContain("}")
 
-      expect(result).toContain("export type User = {");
-      expect(result).toContain("id: number");
-      expect(result).toContain("name: string");
-    });
+      expect(result).toContain("export type User = {")
+      expect(result).toContain("id: number")
+      expect(result).toContain("name: string")
+    })
 
     it("should handle empty array", () => {
-      const result = generateEntityFileTypes(new Map()).typesCode;
-      expect(result).toContain("export namespace schema {");
-      expect(result).toContain("export type Collection<T> = { [k: number]: T; };");
-    });
+      const result = generateEntityFileTypes(new Map()).typesCode
+      expect(result).toContain("export namespace schema {")
+      expect(result).toContain("export type Collection<T> = { [k: number]: T; };")
+    })
 
     it("should generate partial types when partials: true", () => {
       const userCode = `
@@ -291,7 +292,7 @@ describe("entity-parse", () => {
           @ManyToOne(() => Post)
           post!: Post;
         }
-      `;
+      `
 
       const postCode = `
         import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
@@ -304,22 +305,28 @@ describe("entity-parse", () => {
           @Property()
           title!: string;
         }
-      `;
+      `
 
-      const result = generateEntityFileTypes(new Map([["User.ts", userCode], ["Post.ts", postCode]]), {
-        usePartialTypes: true,
-      }).typesCode;
+      const result = generateEntityFileTypes(
+        new Map([
+          ["User.ts", userCode],
+          ["Post.ts", postCode],
+        ]),
+        {
+          usePartialTypes: true,
+        },
+      ).typesCode
 
       // Check that the result is wrapped in namespace schema
-      expect(result).toContain("namespace schema {");
-      expect(result).toContain("}");
+      expect(result).toContain("namespace schema {")
+      expect(result).toContain("}")
 
       // Check that entity references are replaced with partial types
-      expect(result).toContain("post: schema.PartialPost"); // Post entity with partial type
+      expect(result).toContain("post: schema.PartialPost") // Post entity with partial type
 
       // Check that partial types are generated
-      expect(result).toContain("export type PartialUser = {");
-      expect(result).toContain("export type PartialPost = {");
-    });
-  });
-});
+      expect(result).toContain("export type PartialUser = {")
+      expect(result).toContain("export type PartialPost = {")
+    })
+  })
+})

@@ -1,44 +1,22 @@
 #!/usr/bin/env node
 
-import { program } from "commander";
-import { generateEntityValidator, modelsToFunction } from "./generate.js";
+import { program } from "commander"
+import { generateEntityValidator, modelsToFunction } from "./generate.js"
 
 async function main() {
-  program
-    .name("mikro-typebox")
-    .description("Generate validation schemas from Mikro-ORM entities")
-    .version("1.0.0");
+  program.name("mikro-typebox").description("Generate validation schemas from Mikro-ORM entities").version("1.0.0")
 
-  const modelNames = Object.keys(modelsToFunction);
+  const modelNames = Object.keys(modelsToFunction)
 
   program
     .command("generate")
     .description("Generate validation schemas from Mikro-ORM entities")
-    .option(
-      "-e, --entities <path>",
-      "Directory containing the entity files",
-      "./src/entities",
-    )
-    .option(
-      "-o, --output <file>",
-      "Output file path",
-      "./src/entity-validators.ts",
-    )
-    .option(
-      "--write",
-      "Print the code to the console instead of writing to a file",
-      true
-    )
+    .option("-e, --entities <path>", "Directory containing the entity files", "./src/entities")
+    .option("-o, --output <file>", "Output file path", "./src/entity-validators.ts")
+    .option("--write", "Print the code to the console instead of writing to a file", true)
     .option("--no-write")
-    .option(
-      "-t, --target <library>",
-      `Target validation library (${modelNames.join(", ")})`,
-      "typebox",
-    )
-    .option(
-      "--partials",
-      "Generate partial types instead of inline primary key references (default: true for typebox)",
-    )
+    .option("-t, --target <library>", `Target validation library (${modelNames.join(", ")})`, "typebox")
+    .option("--partials", "Generate partial types instead of inline primary key references (default: true for typebox)")
     .option("--no-partials")
     .option("--verbose", "Verbose output", false)
     .action(async (options) => {
@@ -48,35 +26,31 @@ async function main() {
           outputFile: options.output,
           targetValidationLibrary: options.target,
           write: options.write,
-          partials:
-            options.partials ?? (options.noPartials ? false : undefined),
+          partials: options.partials ?? (options.noPartials ? false : undefined),
           verbose: options.verbose,
-        });
+        })
 
         if (!options.write) {
-          console.log(result);
+          console.log(result)
         }
       } catch (error) {
-        console.error(
-          "Error:",
-          error instanceof Error ? error.message : String(error),
-        );
-        process.exit(1);
+        console.error("Error:", error instanceof Error ? error.message : String(error))
+        process.exit(1)
       }
-    });
+    })
 
   // Handle unknown commands
   program.on("command:*", () => {
-    console.error(`Invalid command: ${program.args.join(" ")}`);
-    console.error("See --help for a list of available commands.");
-    process.exit(1);
-  });
+    console.error(`Invalid command: ${program.args.join(" ")}`)
+    console.error("See --help for a list of available commands.")
+    process.exit(1)
+  })
 
   // Parse command line arguments
-  program.parse();
+  program.parse()
 }
 
 main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+  console.error(e)
+  process.exit(1)
+})

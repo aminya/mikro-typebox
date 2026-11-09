@@ -1,48 +1,49 @@
 {
   "name": "mikro-typebox",
-  "description": "Generate validation schemas from Mikro-ORM entities. Supports TypeBox, Zod, Valibot, ArkType, Effect, io-ts, Yup, and more.",
   "version": "1.5.3",
+  "description": "Generate validation schemas from Mikro-ORM entities. Supports TypeBox, Zod, Valibot, ArkType, Effect, io-ts, Yup, and more.",
   "author": {
     "name": "Amin Ya",
-    "url": "https://github.com/aminya",
-    "email": "aminyahyaabadi74@gmail.com"
+    "email": "aminyahyaabadi74@gmail.com",
+    "url": "https://github.com/aminya"
   },
-  "license": "Apache-2.0",
+  "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "source": "src/index.ts",
-  "type": "module",
+  "bin": {
+    "mikro-typebox": "./dist/cli.js"
+  },
   "files": [
     "dist",
     "src"
   ],
-  "bin": {
-    "mikro-typebox": "./dist/cli.js"
-  },
-  "packageManager": "bun@1.2.21",
   "scripts": {
     "build": "shx rm -rf dist && tsc",
-    "test": "bun test",
-    "test:watch": "bun test --watch",
+    "format": "prettier -w --cache -l .",
     "prepublishOnly": "npm run build",
-    "format": "prettier -w --cache -l ."
+    "test": "bun test",
+    "test:watch": "bun test --watch"
   },
-  "devDependencies": {
-    "@mikro-orm/core": "^6.5.3",
-    "@sinclair/typebox": "^0.34.41",
-    "@tsconfig/strictest": "^2.0.5",
-    "@types/bun": "^1.2.22",
-    "shx": "^0.4.0",
-    "zod": "^4.1.8"
-  },
+  "prettier": "prettier-config-atomic",
   "dependencies": {
     "@sinclair/typebox-codegen": "^0.11.1",
-    "commander": "^14.0.1",
-    "typescript": "^5.9.2"
+    "commander": "^15.1.0",
+    "typescript": "^6.0.3"
+  },
+  "devDependencies": {
+    "@mikro-orm/core": "^7.2.8",
+    "@sinclair/typebox": "^0.34.52",
+    "@tsconfig/strictest": "^2.0.8",
+    "@types/bun": "^1.4.4",
+    "prettier-config-atomic": "^4.1.0",
+    "shx": "^0.4.0",
+    "zod": "^4.6.7"
   },
   "optionalDependencies": {
-    "prettier": "^3.6.2"
+    "prettier": "^3.9.10"
   },
+  "packageManager": "bun@1.2.21",
   "tags": [
     "mikro-orm",
     "typebox",
