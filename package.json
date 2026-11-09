@@ -1,7 +1,8 @@
 {
   "name": "mikro-typebox",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Generate validation schemas from Mikro-ORM entities. Supports TypeBox, Zod, Valibot, ArkType, Effect, io-ts, Yup, and more.",
+  "license": "Apache-2.0",
   "author": {
     "name": "Amin Ya",
     "email": "aminyahyaabadi74@gmail.com",
