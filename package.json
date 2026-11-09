@@ -29,7 +29,7 @@
   "dependencies": {
     "@sinclair/typebox-codegen": "^0.11.1",
     "commander": "^15.1.0",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   },
   "devDependencies": {
     "@mikro-orm/core": "^7.2.8",

@@ -1,4 +1,5 @@
-import * as ts from "typescript"
+import * as ts from "typescript/unstable/ast"
+import * as tsFactory from "typescript/unstable/ast/factory"
 import {
   type EntityParseOptions,
   replaceEntityTypeWithPartialType,
@@ -39,9 +40,9 @@ export function inferTypeFromInitializer(
         : replaceEntityTypeWithPrimaryKey(genericType, entityPrimaryKeys)
 
       // Return Collection<T> | Array<T> for compatibility
-      return ts.factory.createUnionTypeNode([
-        ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Collection"), [transformedType]),
-        ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Array"), [transformedType]),
+      return tsFactory.createUnionTypeNode([
+        tsFactory.createTypeReferenceNode(tsFactory.createIdentifier("Collection"), [transformedType]),
+        tsFactory.createTypeReferenceNode(tsFactory.createIdentifier("Array"), [transformedType]),
       ])
     }
   }
@@ -59,13 +60,13 @@ export function inferTypeFromInitializer(
       const firstElement = initializer.elements[0]
       if (firstElement && ts.isObjectLiteralExpression(firstElement)) {
         // This is likely an array of objects, we can't infer the exact type
-        return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Array"), [
-          ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword),
+        return tsFactory.createTypeReferenceNode(tsFactory.createIdentifier("Array"), [
+          tsFactory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword),
         ])
       }
     }
-    return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Array"), [
-      ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword),
+    return tsFactory.createTypeReferenceNode(tsFactory.createIdentifier("Array"), [
+      tsFactory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword),
     ])
   }
 

@@ -1,4 +1,6 @@
-import * as ts from "typescript"
+import * as ts from "typescript/unstable/ast"
+import * as tsVisitor from "typescript/unstable/ast/visitor"
+import * as tsFactory from "typescript/unstable/ast/factory"
 import { inferTypeFromInitializer } from "./infer.js"
 
 export interface EntityParseOptions {
@@ -239,7 +241,7 @@ function collectReferencedEntityNames(node: ts.Node, entityNames: Set<string>, f
     found.add(node.typeName.text)
   }
 
-  ts.forEachChild(node, (childNode) => collectReferencedEntityNames(childNode, entityNames, found))
+  tsVisitor.visitEachChild(node, (childNode) => collectReferencedEntityNames(childNode, entityNames, found))
 }
 
 /** Collect the relations declared by a single entity property */
@@ -327,7 +329,7 @@ function collectEntityRelations(node: ts.Node, entityRelations: EntityRelation[]
     }
   }
 
-  ts.forEachChild(node, (childNode) => collectEntityRelations(childNode, entityRelations, entityNames))
+  tsVisitor.visitEachChild(node, (childNode) => collectEntityRelations(childNode, entityRelations, entityNames))
 }
 
 /** Process multiple entity files and generate types with proper entity ID replacement */
@@ -337,7 +339,7 @@ export function generateEntityFileTypes(
 ): { typesCode: string; enumDefinitions: Map<string, string> } {
   // First pass: collect all entities and their primary key info from all files
   const entityPrimaryKeys = new Map<string, { fieldName: string; fieldType: ts.TypeNode }>()
-  const sourceFile = ts.createSourceFile("temp.ts", Array.from(files.values()).join("\n"), ts.ScriptTarget.Latest, true)
+  const sourceFile = tsFactory.createSourceFile("temp.ts", Array.from(files.values()).join("\n"), ts.ScriptTarget.Latest, true)
 
   // Collect all entity names
   const entityNames = new Set<string>()
@@ -361,7 +363,7 @@ export function generateEntityFileTypes(
 
   // Map each entity to its source file content
   for (const [filePath, content] of files) {
-    const sourceFile = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true)
+    const sourceFile = tsFactory.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true)
 
     // Collect enum declarations from this file
     enumVisitor(sourceFile, filePath, enumDefinitions)
