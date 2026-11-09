@@ -1,8 +1,5 @@
-import { describe, it, expect } from "bun:test";
-import {
-  generateEntityTypes,
-  generateEntityFileTypes,
-} from "../src/prepare.js";
+import { describe, it, expect } from "bun:test"
+import { generateEntityTypes, generateEntityFileTypes } from "../src/prepare.js"
 
 describe("Circular Reference Detection and Breaking", () => {
   describe("generateEntityFileTypes", () => {
@@ -22,7 +19,7 @@ describe("Circular Reference Detection and Breaking", () => {
           @OneToMany(() => Post, post => post.author)
           posts = new Collection<Post>(this);
         }
-      `;
+      `
 
       const postCode = `
         import { Entity, PrimaryKey, Property, ManyToOne, Collection, OneToMany } from "@mikro-orm/core";
@@ -43,7 +40,7 @@ describe("Circular Reference Detection and Breaking", () => {
           @OneToMany(() => Comment, comment => comment.post)
           comments = new Collection<Comment>(this);
         }
-      `;
+      `
 
       const commentCode = `
         import { Entity, PrimaryKey, Property, ManyToOne } from "@mikro-orm/core";
@@ -64,37 +61,41 @@ describe("Circular Reference Detection and Breaking", () => {
           @ManyToOne(() => User)
           author!: User;
         }
-      `;
+      `
 
       const result = generateEntityFileTypes(
-        new Map([["User.ts", userCode], ["Post.ts", postCode], ["Comment.ts", commentCode]]),
+        new Map([
+          ["User.ts", userCode],
+          ["Post.ts", postCode],
+          ["Comment.ts", commentCode],
+        ]),
         { usePartialTypes: true },
-      ).typesCode;
+      ).typesCode
 
       // Check that the result is wrapped in namespace schema
-      expect(result).toContain("namespace schema {");
-      expect(result).toContain("}");
+      expect(result).toContain("namespace schema {")
+      expect(result).toContain("}")
 
       // Check that entity types are generated
-      expect(result).toContain("export type User = {");
-      expect(result).toContain("export type Post = {");
-      expect(result).toContain("export type Comment = {");
+      expect(result).toContain("export type User = {")
+      expect(result).toContain("export type Post = {")
+      expect(result).toContain("export type Comment = {")
 
       // Check that partial types are generated
-      expect(result).toContain("export type PartialUser = {");
-      expect(result).toContain("export type PartialPost = {");
-      expect(result).toContain("export type PartialComment = {");
+      expect(result).toContain("export type PartialUser = {")
+      expect(result).toContain("export type PartialPost = {")
+      expect(result).toContain("export type PartialComment = {")
 
       // The cycles are broken on the to-many side, by inlining a primary key object
-      expect(result).toContain("posts: Collection<{");
-      expect(result).toContain("id: string");
-      expect(result).toContain("comments: Collection<{");
-      expect(result).toContain("id: number");
+      expect(result).toContain("posts: Collection<{")
+      expect(result).toContain("id: string")
+      expect(result).toContain("comments: Collection<{")
+      expect(result).toContain("id: number")
 
       // The to-one sides no longer complete a cycle, so they keep their partial types
-      expect(result).toContain("author: schema.PartialUser");
-      expect(result).toContain("post: schema.PartialPost");
-    });
+      expect(result).toContain("author: schema.PartialUser")
+      expect(result).toContain("post: schema.PartialPost")
+    })
 
     it("should break circular references by inlining primary key objects", () => {
       // Create a more complex circular reference scenario
@@ -113,7 +114,7 @@ describe("Circular Reference Detection and Breaking", () => {
           @OneToMany(() => Post, post => post.author)
           posts = new Collection<Post>(this);
         }
-      `;
+      `
 
       const postCode = `
         import { Entity, PrimaryKey, Property, ManyToOne, Collection, OneToMany } from "@mikro-orm/core";
@@ -134,7 +135,7 @@ describe("Circular Reference Detection and Breaking", () => {
           @OneToMany(() => Comment, comment => comment.post)
           comments = new Collection<Comment>(this);
         }
-      `;
+      `
 
       const commentCode = `
         import { Entity, PrimaryKey, Property, ManyToOne } from "@mikro-orm/core";
@@ -155,31 +156,35 @@ describe("Circular Reference Detection and Breaking", () => {
           @ManyToOne(() => User)
           author!: User;
         }
-      `;
+      `
 
       const result = generateEntityFileTypes(
-        new Map([["User.ts", userCode], ["Post.ts", postCode], ["Comment.ts", commentCode]]),
+        new Map([
+          ["User.ts", userCode],
+          ["Post.ts", postCode],
+          ["Comment.ts", commentCode],
+        ]),
         { usePartialTypes: true },
-      ).typesCode;
+      ).typesCode
 
       // The circular reference should be detected and broken
       // In this case, User -> Post -> Comment -> User creates a cycle
       // The system should break the cycle by inlining primary key objects where needed
 
       // Check that the result is wrapped in namespace schema
-      expect(result).toContain("namespace schema {");
-      expect(result).toContain("}");
+      expect(result).toContain("namespace schema {")
+      expect(result).toContain("}")
 
       // Check that entity types are generated
-      expect(result).toContain("export type User = {");
-      expect(result).toContain("export type Post = {");
-      expect(result).toContain("export type Comment = {");
+      expect(result).toContain("export type User = {")
+      expect(result).toContain("export type Post = {")
+      expect(result).toContain("export type Comment = {")
 
       // Check that partial types are generated
-      expect(result).toContain("export type PartialUser = {");
-      expect(result).toContain("export type PartialPost = {");
-      expect(result).toContain("export type PartialComment = {");
-    });
+      expect(result).toContain("export type PartialUser = {")
+      expect(result).toContain("export type PartialPost = {")
+      expect(result).toContain("export type PartialComment = {")
+    })
 
     it("should handle entities without circular references normally", () => {
       const userCode = `
@@ -193,22 +198,24 @@ describe("Circular Reference Detection and Breaking", () => {
           @Property()
           name!: string;
         }
-      `;
+      `
 
-      const result = generateEntityFileTypes(new Map([["User.ts", userCode]]), { usePartialTypes: true }).typesCode;
+      const result = generateEntityFileTypes(new Map([["User.ts", userCode]]), {
+        usePartialTypes: true,
+      }).typesCode
 
       // Check that the result is wrapped in namespace schema
-      expect(result).toContain("namespace schema {");
-      expect(result).toContain("}");
+      expect(result).toContain("namespace schema {")
+      expect(result).toContain("}")
 
       // Check that entity type is generated
-      expect(result).toContain("export type User = {");
-      expect(result).toContain("id: number");
-      expect(result).toContain("name: string");
+      expect(result).toContain("export type User = {")
+      expect(result).toContain("id: number")
+      expect(result).toContain("name: string")
 
       // Check that partial type is generated
-      expect(result).toContain("export type PartialUser = {");
-    });
+      expect(result).toContain("export type PartialUser = {")
+    })
 
     it("should handle entities with usePartialTypes: false", () => {
       const userCode = `
@@ -226,7 +233,7 @@ describe("Circular Reference Detection and Breaking", () => {
           @ManyToOne(() => Post)
           post!: Post;
         }
-      `;
+      `
 
       const postCode = `
         import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
@@ -239,25 +246,28 @@ describe("Circular Reference Detection and Breaking", () => {
           @Property()
           title!: string;
         }
-      `;
+      `
 
       const result = generateEntityFileTypes(
-        new Map([["User.ts", userCode], ["Post.ts", postCode]]),
+        new Map([
+          ["User.ts", userCode],
+          ["Post.ts", postCode],
+        ]),
         { usePartialTypes: false },
-      ).typesCode;
+      ).typesCode
 
       // Check that the result is wrapped in namespace schema
-      expect(result).toContain("namespace schema {");
-      expect(result).toContain("}");
+      expect(result).toContain("namespace schema {")
+      expect(result).toContain("}")
 
       // Check that entity types are generated
-      expect(result).toContain("export type User = {");
-      expect(result).toContain("export type Post = {");
+      expect(result).toContain("export type User = {")
+      expect(result).toContain("export type Post = {")
 
       // Check that relations use inline primary key objects (not partial types)
-      expect(result).toContain("post: {");
-      expect(result).toContain("id: string");
-      expect(result).not.toContain("schema.PartialPost");
-    });
-  });
-});
+      expect(result).toContain("post: {")
+      expect(result).toContain("id: string")
+      expect(result).not.toContain("schema.PartialPost")
+    })
+  })
+})

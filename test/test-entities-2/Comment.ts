@@ -1,28 +1,28 @@
-import { Entity, PrimaryKey, Property, ManyToOne } from "@mikro-orm/core";
-import { Post } from "./Post.js";
-import { User } from "./User.js";
+import { Entity, PrimaryKey, Property, ManyToOne } from "@mikro-orm/core"
+import { Post } from "./Post.js"
+import { User } from "./User.js"
 
 @Entity()
 export class Comment {
   @PrimaryKey()
-  id!: number;
+  id!: number
 
   @Property()
-  content!: string;
+  content!: string
 
   @Property()
-  createdAt!: Date;
+  createdAt!: Date
 
   @ManyToOne("Post")
-  post!: Post;
+  post!: Post
 
   @ManyToOne("User")
-  author!: User;
+  author!: User
 
   constructor({ content, createdAt, post, author }: Comment) {
-    this.content = content;
-    this.createdAt = createdAt;
-    this.post = post;
-    this.author = author;
+    this.content = content
+    this.createdAt = createdAt
+    this.post = post
+    this.author = author
   }
 }
